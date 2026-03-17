@@ -1,0 +1,585 @@
+/* ── Detail page navigation ──────────────────────────────────────────── */
+.detail-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--nav-bg);
+  border-bottom: 1px solid var(--nav-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.detail-nav-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.detail-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.detail-nav-brand .brand-logo-mark {
+  width: 34px;
+  height: 34px;
+  background: var(--accent-primary);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+}
+
+.detail-nav-brand .brand-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.2px;
+}
+
+.detail-nav-breadcrumb {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+.detail-nav-parent {
+  color: var(--text-secondary);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.detail-nav-parent:hover {
+  color: var(--text-primary);
+}
+
+.detail-nav-sep {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.detail-nav-current {
+  color: var(--text-primary);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* File upload label — replaces inline hover handlers */
+.file-upload-label {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 20px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: center;
+  color: var(--text-primary);
+  font-weight: 500;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-upload-label:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: var(--accent-cyan);
+}
+
+@media (max-width: 768px) {
+  .detail-nav-inner {
+    padding: 0 16px;
+  }
+  .detail-nav-brand .brand-name {
+    display: none;
+  }
+  .detail-nav-parent,
+  .detail-nav-sep {
+    display: none;
+  }
+}
+
+.student-detail-container {
+  min-height: 100vh;
+  padding: 24px 0;
+}
+
+.student-detail-container .loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.back-btn {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: 24px;
+  padding: 10px 20px;
+  transition: all 0.3s ease;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: var(--accent-cyan);
+  transform: translateX(-4px);
+}
+
+/* Основная карточка с информацией о студенте */
+.student-main-card {
+  margin-bottom: 30px;
+}
+
+.student-main-content {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+}
+
+.student-photo-section {
+  flex-shrink: 0;
+}
+
+.student-photo {
+  width: 180px;
+  height: 180px;
+  aspect-ratio: 1;
+  border-radius: 20px;
+  object-fit: cover;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.student-photo-placeholder {
+  width: 180px;
+  height: 180px;
+  aspect-ratio: 1;
+  background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  font-size: 64px;
+  font-weight: 700;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.student-info-section {
+  flex: 1;
+}
+
+.student-info-section h1 {
+  margin: 0 0 16px 0;
+  color: var(--text-primary);
+  font-size: 36px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.student-age {
+  color: var(--text-secondary);
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0 0 24px 0;
+}
+
+.student-info-section .interests-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.student-info-section .interest-tag {
+  background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--accent-cyan);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+}
+
+.empty-text {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 15px;
+}
+
+.add-form {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  align-items: center;
+}
+
+.add-form label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.add-form .btn-primary {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+.form-input {
+  flex: 1;
+  padding: 12px 16px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  font-size: 15px;
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+}
+
+.form-input::placeholder {
+  color: var(--text-muted);
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.2);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Стили для карточек */
+.student-detail-container .card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 30px;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 32px var(--glass-shadow);
+}
+
+.student-detail-container .card h2 {
+  margin: 0 0 20px 0;
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.student-detail-container .calendar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.student-detail-container .calendar-date {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  color: var(--text-primary);
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.student-detail-container .materials-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px 0;
+}
+
+.student-detail-container .materials-list li {
+  padding: 12px 16px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  margin-bottom: 10px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.student-detail-container .materials-list li:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: var(--accent-cyan);
+  transform: translateX(4px);
+}
+
+.student-detail-container .materials-list a {
+  color: var(--accent-cyan);
+  text-decoration: none;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.student-detail-container .materials-list a:hover {
+  text-decoration: underline;
+}
+
+.upcoming-lessons {
+  margin-top: 30px;
+  padding-top: 24px;
+  border-top: 1px solid var(--glass-border);
+}
+
+.lessons-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lesson-item {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.3s ease;
+}
+
+.lesson-item:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: var(--accent-cyan);
+  transform: translateX(4px);
+}
+
+.lesson-item-main {
+  flex: 1;
+  cursor: pointer;
+}
+
+.lesson-start-btn {
+  flex-shrink: 0;
+  font-size: 13px;
+  padding: 6px 14px;
+}
+
+.lesson-item-date {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.lesson-date-label {
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.lesson-time-label {
+  background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-cyan) 100%);
+  color: var(--text-primary);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lesson-item-note {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-style: italic;
+  margin-top: 4px;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .student-main-content {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .student-info-section h1 {
+    font-size: 28px;
+  }
+
+  .student-photo,
+  .student-photo-placeholder {
+    width: 150px;
+    height: 150px;
+  }
+}
+
+
+/* ── Payment section ─────────────────────────────────────────────────── */
+.payment-settings { display: flex; flex-direction: column; gap: 20px; }
+
+.payment-field { display: flex; flex-direction: column; gap: 8px; }
+
+.payment-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.payment-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.payment-input {
+  width: 140px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+}
+.payment-input:focus { border-color: var(--accent-primary); }
+
+.payment-trial-wrap { display: flex; flex-direction: column; gap: 6px; }
+
+.payment-select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+}
+.payment-select:focus { border-color: var(--accent-primary); }
+
+.payment-lessons { margin-top: 8px; }
+
+.payment-lessons-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+}
+
+.payment-lesson-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.payment-lesson-row:last-child { border-bottom: none; }
+
+.payment-lesson-info { display: flex; align-items: center; gap: 10px; }
+
+.payment-lesson-date {
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-width: 80px;
+}
+
+.payment-status-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.payment-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.btn-payment {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-payment:hover { opacity: 0.85; }
+
+.btn-payment-external {
+  background: #10b98120;
+  color: #10b981;
+  border-color: #10b98140;
+}
+
+.btn-payment-platform {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.btn-payment-undo {
+  background: var(--bg-page);
+  color: var(--text-secondary);
+  border-color: var(--border-color);
+}

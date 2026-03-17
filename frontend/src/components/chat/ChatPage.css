@@ -1,0 +1,12 @@
+.chat-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg-page);
+}
+
+.chat-page__body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+}

@@ -1,0 +1,52 @@
+package project.TutorLab.config;
+
+import jakarta.servlet.Filter;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+
+/**
+ * Adds security-related HTTP response headers to every request.
+ * Prevents clickjacking, MIME-sniffing, and restricts resource loading.
+ */
+@Component
+public class SecurityHeadersFilter implements Filter {
+
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
+            throws IOException, ServletException {
+
+        HttpServletResponse httpResponse = (HttpServletResponse) response;
+
+        // Prevent MIME type sniffing
+        httpResponse.setHeader("X-Content-Type-Options", "nosniff");
+
+        // Prevent clickjacking
+        httpResponse.setHeader("X-Frame-Options", "DENY");
+
+        // Modern browsers ignore this, but set to 0 to disable legacy XSS filter
+        httpResponse.setHeader("X-XSS-Protection", "0");
+
+        // Control referrer information
+        httpResponse.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+
+        // Restrict powerful browser features
+        httpResponse.setHeader("Permissions-Policy", "camera=(), microphone=(self), geolocation=()");
+
+        // Content Security Policy
+        httpResponse.setHeader("Content-Security-Policy",
+                "default-src 'self'; " +
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+                "font-src 'self' https://fonts.gstatic.com; " +
+                "img-src 'self' data: blob:; " +
+                "connect-src 'self' ws: wss: http://localhost:* https:;");
+
+        chain.doFilter(request, response);
+    }
+}
