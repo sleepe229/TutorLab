@@ -33,6 +33,8 @@ public class LiveSessionServiceImpl implements LiveSessionService {
         state.setSlideDrawings(new HashMap<>());
 
         saveSession(state);
+        String tutorKey = "live:session:tutor:" + tutorId;
+        redisTemplate.opsForValue().set(tutorKey, id, Duration.ofHours(sessionTtlHours));
         return state;
     }
 
@@ -94,8 +96,20 @@ public class LiveSessionServiceImpl implements LiveSessionService {
 
     @Override
     public void deleteSession(String sessionId) {
+        LiveSessionState state = getSession(sessionId);
+        if (state != null) {
+            redisTemplate.delete("live:session:tutor:" + state.getTutorId());
+        }
         String key = KEY_PREFIX + sessionId;
         redisTemplate.delete(key);
+    }
+
+    @Override
+    public LiveSessionState getSessionByTutor(String tutorId) {
+        String tutorKey = "live:session:tutor:" + tutorId;
+        Object sessionIdObj = redisTemplate.opsForValue().get(tutorKey);
+        if (!(sessionIdObj instanceof String)) return null;
+        return getSession((String) sessionIdObj);
     }
 
     @SuppressWarnings("null")

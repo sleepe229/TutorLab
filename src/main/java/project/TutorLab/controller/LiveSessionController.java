@@ -55,6 +55,13 @@ public class LiveSessionController {
         return ResponseEntity.ok(state);
     }
 
+    @GetMapping("/sessions/tutor/{tutorId}")
+    public ResponseEntity<LiveSessionState> getSessionByTutor(@PathVariable String tutorId) {
+        LiveSessionState state = liveSessionService.getSessionByTutor(tutorId);
+        if (state == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(state);
+    }
+
     @GetMapping("/sessions/{sessionId}")
     public ResponseEntity<LiveSessionState> getSession(@PathVariable String sessionId) {
         LiveSessionState state = liveSessionService.getSession(sessionId);

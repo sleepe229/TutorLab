@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { API_BASE } from '../../config.js';
 import './StudentCard.css';
 
-function StudentCard({ student, onClick, onDelete, onToggleFavorite, tutorId, onStartLesson }) {
+function StudentCard({ student, onClick, onDelete, onToggleFavorite, tutorId, onStartLesson, onMessage }) {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
 
@@ -176,6 +176,11 @@ function StudentCard({ student, onClick, onDelete, onToggleFavorite, tutorId, on
           <button className="sc-btn sc-btn--primary" onClick={handleStartLesson} aria-label="Начать урок">
             Начать урок →
           </button>
+          {student.studentAccountId && onMessage && (
+            <button className="sc-btn sc-btn--secondary" onClick={(e) => { e.stopPropagation(); onMessage(student); }} aria-label="Написать сообщение">
+              Написать
+            </button>
+          )}
         </div>
       </div>
     </article>
