@@ -7,7 +7,8 @@ import RegistrationChat from '../registration/RegistrationChat';
 function InviteHandler({ studentAccountId }) {
   const { studentId } = useParams();
   const navigate = useNavigate();
-  const [status, setStatus] = useState('idle'); // 'idle' | 'linking' | 'done' | 'already'
+  const [status, setStatus] = useState('idle'); // 'idle' | 'linking' | 'done' | 'already' | 'error'
+  const [errorMsg, setErrorMsg] = useState('');
 
   const doLink = async (token) => {
     setStatus('linking');
@@ -16,8 +17,13 @@ function InviteHandler({ studentAccountId }) {
       localStorage.setItem('linkedStudentId', studentId);
       setStatus('done');
     } catch (err) {
-      // 409 = already linked, treat as success
-      setStatus(err?.response?.status === 409 ? 'already' : 'done');
+      const httpStatus = err?.response?.status;
+      if (httpStatus === 409) {
+        setStatus('already');
+      } else {
+        setErrorMsg(err?.response?.data?.message || 'Не удалось привязать профиль. Попробуйте ещё раз.');
+        setStatus('error');
+      }
     }
   };
 
@@ -33,6 +39,39 @@ function InviteHandler({ studentAccountId }) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-page)', color: 'var(--text-secondary)' }}>
         Привязываем профиль...
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-page)' }}>
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 20, padding: '40px 32px', maxWidth: 400, width: '90%', textAlign: 'center', boxShadow: '0 4px 32px rgba(0,0,0,0.12)' }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+          <h2 style={{ margin: '0 0 8px', fontSize: 22, fontWeight: 700, color: 'var(--text-primary)' }}>
+            Не удалось привязать профиль
+          </h2>
+          <p style={{ margin: '0 0 28px', fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            {errorMsg}
+          </p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                const token = localStorage.getItem('studentToken');
+                if (token) doLink(token);
+              }}
+            >
+              Попробовать снова
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => navigate('/me')}
+            >
+              Мой кабинет
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

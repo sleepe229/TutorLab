@@ -55,6 +55,8 @@ function StudentDashboard({ studentAccountId, onLogout }) {
     if (tutorIds.length === 0) return;
 
     const checkSessions = async () => {
+      // Skip polling when page is not visible to reduce unnecessary server load
+      if (document.visibilityState === 'hidden') return;
       for (const tutorId of tutorIds) {
         try {
           const res = await liveApi.getSessionByTutor(tutorId);
@@ -71,7 +73,8 @@ function StudentDashboard({ studentAccountId, onLogout }) {
     };
 
     checkSessions();
-    liveCheckRef.current = setInterval(checkSessions, 10000);
+    // Poll every 30 s (was 10 s) to reduce server load; skip hidden tabs via visibilityState check above
+    liveCheckRef.current = setInterval(checkSessions, 30000);
   };
 
   const today = new Date();

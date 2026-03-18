@@ -14,6 +14,7 @@ import java.util.*;
 public class LiveSessionServiceImpl implements LiveSessionService {
 
     private static final String KEY_PREFIX = "live:session:";
+    private static final String TUTOR_KEY_PREFIX = "live:session:tutor:";
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
@@ -33,7 +34,7 @@ public class LiveSessionServiceImpl implements LiveSessionService {
         state.setSlideDrawings(new HashMap<>());
 
         saveSession(state);
-        String tutorKey = "live:session:tutor:" + tutorId;
+        String tutorKey = TUTOR_KEY_PREFIX + tutorId;
         redisTemplate.opsForValue().set(tutorKey, id, Duration.ofHours(sessionTtlHours));
         return state;
     }
@@ -98,7 +99,7 @@ public class LiveSessionServiceImpl implements LiveSessionService {
     public void deleteSession(String sessionId) {
         LiveSessionState state = getSession(sessionId);
         if (state != null) {
-            redisTemplate.delete("live:session:tutor:" + state.getTutorId());
+            redisTemplate.delete(TUTOR_KEY_PREFIX + state.getTutorId());
         }
         String key = KEY_PREFIX + sessionId;
         redisTemplate.delete(key);
@@ -106,7 +107,7 @@ public class LiveSessionServiceImpl implements LiveSessionService {
 
     @Override
     public LiveSessionState getSessionByTutor(String tutorId) {
-        String tutorKey = "live:session:tutor:" + tutorId;
+        String tutorKey = TUTOR_KEY_PREFIX + tutorId;
         Object sessionIdObj = redisTemplate.opsForValue().get(tutorKey);
         if (!(sessionIdObj instanceof String)) return null;
         return getSession((String) sessionIdObj);
@@ -117,5 +118,10 @@ public class LiveSessionServiceImpl implements LiveSessionService {
         String key = KEY_PREFIX + state.getSessionId();
         Duration duration = Duration.ofHours(sessionTtlHours);
         redisTemplate.opsForValue().set(key, state, duration);
+        // Keep the tutor→sessionId index in sync with the session TTL
+        if (state.getTutorId() != null) {
+            String tutorKey = TUTOR_KEY_PREFIX + state.getTutorId();
+            redisTemplate.opsForValue().set(tutorKey, state.getSessionId(), duration);
+        }
     }
 }

@@ -496,7 +496,14 @@ function LiveLessonTeacher({ tutorId }) {
         // role='teacher' (teacher-initiated), sender='teacher'
         const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher', 'teacher');
         rtc.onRemoteStream = () => {}; // screen share peer — no remote video expected
-        rtc.startExistingStream(stream);
+        const ok = rtc.startExistingStream(stream);
+        if (!ok) {
+          stream.getTracks().forEach(t => t.stop());
+          screenStreamRef.current = null;
+          if (localVideoRef.current) localVideoRef.current.srcObject = null;
+          toast.error('Не удалось запустить демонстрацию экрана. Проверьте разрешения браузера и попробуйте снова.');
+          return;
+        }
         webrtcRef.current = rtc;
       }
 
