@@ -24,12 +24,16 @@ export const connectToTutorUpdates = (tutorIds, callbacks = {}) => {
       );
       subscriptions.push(sub);
     });
-  }, () => {});
+  }, (error) => {
+    console.error('Tutor updates WebSocket connection error:', error);
+    callbacks.onError?.(error);
+  });
 
   return {
     disconnect: () => {
       subscriptions.forEach(sub => sub.unsubscribe());
-      if (stompClient?.connected) stompClient.disconnect();
+      stompClient.disconnect();
+      socket.close();
     },
   };
 };

@@ -468,9 +468,12 @@ function LiveLessonTeacher({ tutorId }) {
   // ── Screen share ──────────────────────────────────────────────────────
   const toggleScreenShare = async () => {
     if (isScreenSharing) {
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(t => t.stop());
+        screenStreamRef.current = null;
+      }
       webrtcRef.current?.stopStream();
       webrtcRef.current = null;
-      screenStreamRef.current = null;
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       setIsScreenSharing(false);
       setIsAudioEnabled(false);

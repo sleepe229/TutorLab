@@ -2,7 +2,6 @@ package project.TutorLab.controller;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -46,21 +45,32 @@ public class LiveSessionController {
         this.pdfService = pdfService;
     }
 
+    public record LiveSessionSummary(boolean active, String sessionId) {
+    }
+
     @PostMapping("/sessions")
     public ResponseEntity<LiveSessionState> createSession(
             @RequestParam String tutorId,
-            @RequestParam(required = false, defaultValue = "Новый урок") String title
+            @RequestParam(required = false, defaultValue = "Новый урок") String title,
+            jakarta.servlet.http.HttpServletRequest request
     ) {
-        LiveSessionState state = liveSessionService.createSession(tutorId, title);
-        wsController.notifyTutorLive(tutorId, state.getSessionId());
+        String authenticatedTutorId = (String) request.getAttribute("tutorId");
+        if (authenticatedTutorId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!authenticatedTutorId.equals(tutorId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        LiveSessionState state = liveSessionService.createSession(authenticatedTutorId, title);
+        wsController.notifyTutorLive(authenticatedTutorId, state.getSessionId());
         return ResponseEntity.ok(state);
     }
 
     @GetMapping("/sessions/tutor/{tutorId}")
-    public ResponseEntity<LiveSessionState> getSessionByTutor(@PathVariable String tutorId) {
+    public ResponseEntity<LiveSessionSummary> getSessionByTutor(@PathVariable String tutorId) {
         LiveSessionState state = liveSessionService.getSessionByTutor(tutorId);
         if (state == null) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(state);
+        return ResponseEntity.ok(new LiveSessionSummary(true, state.getSessionId()));
     }
 
     @GetMapping("/sessions/{sessionId}")

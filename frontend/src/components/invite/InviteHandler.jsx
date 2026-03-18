@@ -7,7 +7,7 @@ import RegistrationChat from '../registration/RegistrationChat';
 function InviteHandler({ studentAccountId }) {
   const { studentId } = useParams();
   const navigate = useNavigate();
-  const [status, setStatus] = useState('idle'); // 'idle' | 'linking' | 'done' | 'already'
+  const [status, setStatus] = useState('idle'); // 'idle' | 'linking' | 'done' | 'already' | 'error'
 
   const doLink = async (token) => {
     setStatus('linking');
@@ -16,8 +16,11 @@ function InviteHandler({ studentAccountId }) {
       localStorage.setItem('linkedStudentId', studentId);
       setStatus('done');
     } catch (err) {
-      // 409 = already linked, treat as success
-      setStatus(err?.response?.status === 409 ? 'already' : 'done');
+      if (err?.response?.status === 409) {
+        setStatus('already');
+      } else {
+        setStatus('error');
+      }
     }
   };
 
@@ -33,6 +36,29 @@ function InviteHandler({ studentAccountId }) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-page)', color: 'var(--text-secondary)' }}>
         Привязываем профиль...
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-page)', color: 'var(--text-secondary)' }}>
+        <p style={{ marginBottom: '16px' }}>Не удалось привязать профиль. Попробуйте ещё раз.</p>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              const t = localStorage.getItem('studentToken');
+              if (t) doLink(t);
+            }}
+          >
+            Повторить попытку
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={() => navigate('/me')}>
+            Назад
+          </button>
+        </div>
       </div>
     );
   }

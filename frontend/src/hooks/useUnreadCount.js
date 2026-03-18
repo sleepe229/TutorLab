@@ -29,7 +29,7 @@ export function useUnreadCount(role, senderId, token) {
     loadCount();
     timerRef.current = setInterval(loadCount, 30000);
     return () => clearInterval(timerRef.current);
-  }, [senderId, role]);
+  }, [senderId, role, token]);
 
   return count;
 }

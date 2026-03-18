@@ -89,6 +89,12 @@
 .sd-live-dismiss { background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 16px; padding: 4px 8px; border-radius: 6px; line-height: 1; }
 .sd-live-dismiss:hover { background: var(--bg-hover, rgba(0,0,0,0.06)); color: var(--text-primary); }
 
+/* Nav icon buttons (shared with Home) */
+.nav-icon-btn { position: relative; background: none; border: 1px solid var(--border-color); border-radius: 8px; width: 36px; height: 36px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.nav-icon-btn:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--text-secondary); }
+.nav-icon-btn.logout:hover { background: rgba(248,113,113,0.1); color: var(--color-error); border-color: rgba(248,113,113,0.3); }
+.nav-unread-badge { position: absolute; top: -4px; right: -4px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 700; border-radius: 10px; min-width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; pointer-events: none; }
+
 /* Join button inside lesson card */
 .sd-join-btn { margin-top: 12px; display: inline-block; font-size: 13px; padding: 8px 18px; text-decoration: none; }
 
