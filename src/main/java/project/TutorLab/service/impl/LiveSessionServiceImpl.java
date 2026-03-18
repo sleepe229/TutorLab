@@ -96,7 +96,12 @@ public class LiveSessionServiceImpl implements LiveSessionService {
     public void deleteSession(String sessionId) {
         LiveSessionState state = getSession(sessionId);
         if (state != null) {
-            redisTemplate.delete("live:session:tutor:" + state.getTutorId());
+            String tutorKey = "live:session:tutor:" + state.getTutorId();
+            Object currentSessionIdObj = redisTemplate.opsForValue().get(tutorKey);
+            if (currentSessionIdObj instanceof String
+                    && state.getSessionId().equals(currentSessionIdObj)) {
+                redisTemplate.delete(tutorKey);
+            }
         }
         String key = KEY_PREFIX + sessionId;
         redisTemplate.delete(key);
