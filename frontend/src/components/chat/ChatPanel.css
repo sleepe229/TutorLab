@@ -239,6 +239,26 @@
   display: inline-block;
 }
 
+/* ── Date separator ─────────────────────────────────────────────────── */
+.chat-date-sep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.chat-date-sep::before, .chat-date-sep::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-color);
+}
+.chat-date-sep span {
+  flex-shrink: 0;
+  padding: 0 8px;
+}
+
 /* ── Input form ──────────────────────────────────────────────────────── */
 .chat-input-form {
   display: flex;

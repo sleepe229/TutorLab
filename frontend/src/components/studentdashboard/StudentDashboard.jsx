@@ -1,29 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { studentApi, studentAccountApi } from '../../services/api'; // studentAccountApi used for getMe
-import { API_BASE } from '../../config.js';
+import { studentApi, studentAccountApi, liveApi } from '../../services/api';
+import { connectToTutorUpdates } from '../../services/wsClient';
+import { API_BASE } from '../../config.js'; // used for photo/material URLs
+import { parseLocalDate } from '../../utils/date';
+import { useUnreadCount } from '../../hooks/useUnreadCount';
 import ThemeToggle from '../ui/ThemeToggle';
-import ChatPanel from '../chat/ChatPanel';
 import './StudentDashboard.css';
 
 function StudentDashboard({ studentAccountId, onLogout }) {
-  const [account, setAccount] = useState(null);
-  const [profiles, setProfiles] = useState([]); // [{student, tutorLabel}]
+  const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showChat, setShowChat] = useState(false);
+  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'schedule'
+  const [liveSession, setLiveSession] = useState(null); // { sessionId, tutorName, tutorId }
+  const wsLiveRef = useRef(null);
 
   const token = localStorage.getItem('studentToken');
   const firstName = localStorage.getItem('studentFirstName') || '';
   const lastName = localStorage.getItem('studentLastName') || '';
+  const unreadCount = useUnreadCount('STUDENT', studentAccountId, token);
 
   useEffect(() => { loadData(); }, [studentAccountId]);
+
+  useEffect(() => {
+    return () => wsLiveRef.current?.disconnect();
+  }, []);
 
   const loadData = async () => {
     setLoading(true);
     try {
       const meRes = await studentAccountApi.getMe(token);
       const acc = meRes.data;
-      setAccount(acc);
 
       const ids = acc.linkedStudentIds || [];
       const loaded = await Promise.all(
@@ -33,7 +40,9 @@ function StudentDashboard({ studentAccountId, onLogout }) {
             .catch(() => null)
         )
       );
-      setProfiles(loaded.filter(Boolean));
+      const valid = loaded.filter(Boolean);
+      setProfiles(valid);
+      subscribeToLive(valid);
     } catch {
       toast.error('Не удалось загрузить данные');
     } finally {
@@ -41,24 +50,53 @@ function StudentDashboard({ studentAccountId, onLogout }) {
     }
   };
 
-  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const subscribeToLive = (profileList) => {
+    const tutorIds = [...new Set(profileList.map(p => p.tutorId).filter(Boolean))];
+    if (tutorIds.length === 0) return;
+
+    const getTutorName = (tutorId) =>
+      profileList.find(p => p.tutorId === tutorId)?.tutorName || 'Преподаватель';
+
+    // One-time REST check: detect sessions already running before WS connected
+    tutorIds.forEach(async (tutorId) => {
+      try {
+        const res = await liveApi.getSessionByTutor(tutorId, token);
+        setLiveSession({ sessionId: res.data.sessionId, tutorName: getTutorName(tutorId), tutorId });
+      } catch { /* 404 = no active session */ }
+    });
+
+    // Real-time updates via WebSocket
+    wsLiveRef.current?.disconnect();
+    wsLiveRef.current = connectToTutorUpdates(tutorIds, {
+      onLiveSession: (tutorId, data) => {
+        if (data.active) {
+          setLiveSession({ sessionId: data.sessionId, tutorName: getTutorName(tutorId), tutorId });
+        } else {
+          setLiveSession(prev => prev?.tutorId === tutorId ? null : prev);
+        }
+      },
+    });
+  };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
 
   const parseLessons = (student) =>
     (student?.lessonDates || []).map(d => {
       if (d.includes('|')) {
         const [date, time, note] = d.split('|');
-        return { date, time: time || '', note: note || '' };
+        return { date, time: time || '', note: note || '', tutorName: student.tutorName, tutorId: student.tutorId, studentId: student.id };
       }
-      return { date: d, time: '', note: '' };
+      return { date: d, time: '', note: '', tutorName: student.tutorName, tutorId: student.tutorId, studentId: student.id };
     });
 
-  const formatDate = (d) => {
-    const date = new Date(d);
-    const todayStr = new Date().toDateString();
-    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-    if (date.toDateString() === todayStr) return 'Сегодня';
-    if (date.toDateString() === tomorrow.toDateString()) return 'Завтра';
-    return date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+  const formatDate = (dateStr) => {
+    const d = parseLocalDate(dateStr);
+    if (d.toDateString() === today.toDateString()) return 'Сегодня';
+    if (d.toDateString() === tomorrow.toDateString()) return 'Завтра';
+    return d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
   };
 
   const getMaterials = (student, date) =>
@@ -72,10 +110,13 @@ function StudentDashboard({ studentAccountId, onLogout }) {
 
   const displayName = firstName + (lastName ? ` ${lastName}` : '');
 
-  // Aggregate upcoming lessons across all profiles for the greeting
-  const allUpcoming = profiles.flatMap(s =>
-    parseLessons(s).filter(l => new Date(l.date) >= today)
-  );
+  const allUpcoming = profiles
+    .flatMap(s => parseLessons(s).filter(l => parseLocalDate(l.date) >= today))
+    .sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
+
+  const allPast = profiles
+    .flatMap(s => parseLessons(s).filter(l => parseLocalDate(l.date) < today))
+    .sort((a, b) => parseLocalDate(b.date) - parseLocalDate(a.date));
 
   return (
     <div className="sd-container">
@@ -85,7 +126,22 @@ function StudentDashboard({ studentAccountId, onLogout }) {
             <div className="sd-logo">TL</div>
             <span className="sd-brand-name">TutorLab</span>
           </div>
-          <span className="sd-nav-title">Кабинет ученика</span>
+
+          <nav className="sd-nav-tabs">
+            <button
+              className={`sd-tab${activeTab === 'home' ? ' sd-tab--active' : ''}`}
+              onClick={() => setActiveTab('home')}
+            >
+              Кабинет
+            </button>
+            <button
+              className={`sd-tab${activeTab === 'schedule' ? ' sd-tab--active' : ''}`}
+              onClick={() => setActiveTab('schedule')}
+            >
+              Расписание
+            </button>
+          </nav>
+
           <div className="sd-nav-actions">
             <button className="nav-link nav-link-btn" onClick={() => window.location.href = '/tutors'}>Репетиторы</button>
             <ThemeToggle />
@@ -94,10 +150,14 @@ function StudentDashboard({ studentAccountId, onLogout }) {
               onClick={() => window.location.href = '/chat'}
               aria-label="Сообщения"
               title="Сообщения"
+              style={{ position: 'relative' }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
               </svg>
+              {unreadCount > 0 && (
+                <span className="nav-unread-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+              )}
             </button>
             <button className="nav-icon-btn logout" onClick={onLogout} title="Выйти" aria-label="Выйти">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -110,41 +170,53 @@ function StudentDashboard({ studentAccountId, onLogout }) {
         </div>
       </header>
 
+      {/* Live session notification banner */}
+      {liveSession && (
+        <div className="sd-live-banner">
+          <span className="sd-live-dot" />
+          <span className="sd-live-text">
+            <strong>{liveSession.tutorName}</strong> начал урок
+          </span>
+          <a href={`/live/student/${liveSession.sessionId}`} className="btn btn-primary sd-live-join">
+            Подключиться
+          </a>
+          <button className="sd-live-dismiss" onClick={() => setLiveSession(null)} aria-label="Закрыть">✕</button>
+        </div>
+      )}
+
       <div className="sd-body">
         {loading ? (
           <div className="sd-loading">Загрузка...</div>
-        ) : (
+        ) : activeTab === 'home' ? (
           <>
-            {/* Greeting */}
             <div className="sd-greeting">
               <h1>Привет{displayName ? `, ${displayName}` : ''}!</h1>
               {allUpcoming.length > 0 && (
                 <p className="sd-greeting-sub">
-                  {allUpcoming.length} {allUpcoming.length === 1 ? 'предстоящий урок' : allUpcoming.length < 5 ? 'предстоящих урока' : 'предстоящих уроков'}
+                  {allUpcoming.length === 1 ? '1 предстоящий урок'
+                    : allUpcoming.length < 5 ? `${allUpcoming.length} предстоящих урока`
+                    : `${allUpcoming.length} предстоящих уроков`}
                 </p>
               )}
             </div>
 
-            {/* Find a tutor */}
             {profiles.length === 0 && (
               <div className="sd-link-section">
-                <h2 className="sd-section-title">Найдите репетитора</h2>
+                <h2 className="sd-section-title">Нет активных занятий</h2>
                 <p className="sd-link-hint">
-                  Просматривайте анкеты преподавателей и начните заниматься уже сегодня.
+                  Попросите репетитора прислать вам ссылку-приглашение, чтобы появиться здесь.
                 </p>
-                <button className="btn btn-primary" onClick={() => window.location.href = '/tutors'}>
-                  Смотреть репетиторов
-                </button>
               </div>
             )}
 
-            {/* One card per linked profile (tutor) */}
             {profiles.map(student => {
               const lessons = parseLessons(student);
-              const upcoming = lessons.filter(l => new Date(l.date) >= today)
-                .sort((a, b) => new Date(a.date) - new Date(b.date));
-              const past = lessons.filter(l => new Date(l.date) < today)
-                .sort((a, b) => new Date(b.date) - new Date(a.date));
+              const upcoming = lessons
+                .filter(l => parseLocalDate(l.date) >= today)
+                .sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
+              const past = lessons
+                .filter(l => parseLocalDate(l.date) < today)
+                .sort((a, b) => parseLocalDate(b.date) - parseLocalDate(a.date));
               const allMats = (student.materialUrls || []).map((url, i) => ({
                 url: url.startsWith('/api/') ? `${API_BASE}${url}` : url,
                 name: decodeURIComponent(url.split('/').pop() || `Материал ${i + 1}`),
@@ -152,7 +224,6 @@ function StudentDashboard({ studentAccountId, onLogout }) {
 
               return (
                 <div key={student.id} className="sd-tutor-block">
-                  {/* Profile row */}
                   <div className="sd-profile-card">
                     {getPhotoUrl(student.photoUrl) ? (
                       <img src={getPhotoUrl(student.photoUrl)} alt="" className="sd-avatar" />
@@ -177,7 +248,6 @@ function StudentDashboard({ studentAccountId, onLogout }) {
                     </div>
                   </div>
 
-                  {/* Upcoming lessons */}
                   <section className="sd-section">
                     <h2 className="sd-section-title">Предстоящие занятия</h2>
                     {upcoming.length === 0 ? (
@@ -186,9 +256,10 @@ function StudentDashboard({ studentAccountId, onLogout }) {
                       <div className="sd-lessons">
                         {upcoming.map((l, i) => {
                           const mats = getMaterials(student, l.date);
-                          const isNow = new Date(l.date).toDateString() === new Date().toDateString();
+                          const isToday = parseLocalDate(l.date).toDateString() === today.toDateString();
+                          const hasLive = isToday && liveSession && student.tutorId === liveSession.tutorId;
                           return (
-                            <div key={i} className={`sd-lesson-card ${isNow ? 'sd-today' : ''}`}>
+                            <div key={i} className={`sd-lesson-card${isToday ? ' sd-today' : ''}`}>
                               <div className="sd-lesson-meta">
                                 <span className="sd-lesson-date">{formatDate(l.date)}</span>
                                 {l.time && <span className="sd-lesson-time">{l.time}</span>}
@@ -201,6 +272,11 @@ function StudentDashboard({ studentAccountId, onLogout }) {
                                   ))}
                                 </ul>
                               )}
+                              {hasLive && (
+                                <a href={`/live/student/${liveSession.sessionId}`} className="btn btn-primary sd-join-btn">
+                                  Подключиться к уроку
+                                </a>
+                              )}
                             </div>
                           );
                         })}
@@ -208,7 +284,6 @@ function StudentDashboard({ studentAccountId, onLogout }) {
                     )}
                   </section>
 
-                  {/* General materials */}
                   {allMats.length > 0 && (
                     <section className="sd-section">
                       <h2 className="sd-section-title">Материалы</h2>
@@ -220,7 +295,6 @@ function StudentDashboard({ studentAccountId, onLogout }) {
                     </section>
                   )}
 
-                  {/* Lesson history */}
                   {past.length > 0 && (
                     <section className="sd-section">
                       <h2 className="sd-section-title">История занятий</h2>
@@ -251,17 +325,89 @@ function StudentDashboard({ studentAccountId, onLogout }) {
               );
             })}
           </>
+        ) : (
+          /* ── Schedule tab ── */
+          <div className="sd-schedule">
+            <div className="sd-greeting">
+              <h1>Расписание занятий</h1>
+              {allUpcoming.length > 0 && (
+                <p className="sd-greeting-sub">{allUpcoming.length} предстоящих занятий</p>
+              )}
+            </div>
+
+            {allUpcoming.length === 0 && allPast.length === 0 && (
+              <div className="sd-link-section">
+                <p className="sd-link-hint">Нет занятий. Попросите репетитора добавить расписание.</p>
+              </div>
+            )}
+
+            {allUpcoming.length > 0 && (
+              <section className="sd-section">
+                <h2 className="sd-section-title">Предстоящие</h2>
+                <div className="sd-lessons">
+                  {allUpcoming.map((l, i) => {
+                    const isToday = parseLocalDate(l.date).toDateString() === today.toDateString();
+                    const hasLive = isToday && liveSession && l.tutorId === liveSession.tutorId;
+                    const studentProfile = profiles.find(p => p.id === l.studentId);
+                    const mats = studentProfile ? getMaterials(studentProfile, l.date) : [];
+                    return (
+                      <div key={i} className={`sd-lesson-card${isToday ? ' sd-today' : ''}`}>
+                        <div className="sd-lesson-meta">
+                          <span className="sd-lesson-date">{formatDate(l.date)}</span>
+                          {l.time && <span className="sd-lesson-time">{l.time}</span>}
+                          {l.tutorName && <span className="sd-lesson-tutor">{l.tutorName}</span>}
+                        </div>
+                        {l.note && <p className="sd-lesson-note">{l.note}</p>}
+                        {mats.length > 0 && (
+                          <ul className="sd-mats">
+                            {mats.map((m, j) => (
+                              <li key={j}><a href={m.url} target="_blank" rel="noopener noreferrer" download>📄 {m.name}</a></li>
+                            ))}
+                          </ul>
+                        )}
+                        {hasLive && (
+                          <a href={`/live/student/${liveSession.sessionId}`} className="btn btn-primary sd-join-btn">
+                            Подключиться к уроку
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {allPast.length > 0 && (
+              <section className="sd-section">
+                <h2 className="sd-section-title">Прошедшие</h2>
+                <div className="sd-lessons sd-past">
+                  {allPast.slice(0, 20).map((l, i) => {
+                    const studentProfile = profiles.find(p => p.id === l.studentId);
+                    const mats = studentProfile ? getMaterials(studentProfile, l.date) : [];
+                    return (
+                      <div key={i} className="sd-lesson-card sd-past-card">
+                        <div className="sd-lesson-meta">
+                          <span className="sd-lesson-date">{formatDate(l.date)}</span>
+                          {l.time && <span className="sd-lesson-time">{l.time}</span>}
+                          {l.tutorName && <span className="sd-lesson-tutor">{l.tutorName}</span>}
+                        </div>
+                        {l.note && <p className="sd-lesson-note">{l.note}</p>}
+                        {mats.length > 0 && (
+                          <ul className="sd-mats">
+                            {mats.map((m, j) => (
+                              <li key={j}><a href={m.url} target="_blank" rel="noopener noreferrer" download>📄 {m.name}</a></li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+          </div>
         )}
       </div>
-      {showChat && (
-        <ChatPanel
-          role="STUDENT"
-          senderId={studentAccountId}
-          senderName={displayName}
-          token={token}
-          onClose={() => setShowChat(false)}
-        />
-      )}
     </div>
   );
 }

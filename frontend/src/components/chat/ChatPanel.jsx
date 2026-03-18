@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { chatApi } from '../../services/api';
 import { API_BASE } from '../../config.js';
@@ -24,6 +24,7 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
   const [sending, setSending] = useState(false);
   const wsRef = useRef(null);
   const bottomRef = useRef(null);
+  const inputRef = useRef(null);
   const activeChatRef = useRef(null);
   activeChatRef.current = activeChat;
 
@@ -66,6 +67,12 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
     // Mark as read
     if (isStudent) chatApi.markReadStudent(chat.id, token).catch(() => {});
     else chatApi.markReadTutor(chat.id).catch(() => {});
+    // Immediately clear unread badge in local state
+    setChats(prev => prev.map(c =>
+      c.id === chat.id
+        ? { ...c, unreadCountStudent: 0, unreadCountTutor: 0 }
+        : c
+    ));
 
     // Connect WS
     const ws = connectChatWs(chat.id, (msg) => {
@@ -105,8 +112,9 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
         text,
         type: 'TEXT',
       });
-      // Optimistically add (WS echo will be deduped)
-      setMessages(prev => [...prev, res.data]);
+      // Optimistically add (WS echo will be deduped by id)
+      setMessages(prev => prev.some(m => m.id === res.data.id) ? prev : [...prev, res.data]);
+      setTimeout(() => inputRef.current?.focus(), 0);
       // Update chat's last message
       setChats(prev => prev.map(c =>
         c.id === activeChat.id ? { ...c, lastMessage: text, lastTimestamp: Date.now() } : c
@@ -157,6 +165,20 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
     const p = name.trim().split(/\s+/);
     return p.length >= 2 ? p[0][0] + p[1][0] : name.slice(0, 2).toUpperCase();
   };
+
+  const groupedMessages = useMemo(() => {
+    const groups = [];
+    let lastDate = null;
+    messages.forEach(msg => {
+      const d = formatDate(msg.timestamp);
+      if (d !== lastDate) {
+        groups.push({ type: 'separator', date: d });
+        lastDate = d;
+      }
+      groups.push({ type: 'message', msg });
+    });
+    return groups;
+  }, [messages]);
 
   return (
     <div className={`chat-panel${inline ? ' chat-panel--inline' : ''}`}>
@@ -211,7 +233,15 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
                 {isStudent ? activeChat.tutorName : activeChat.studentName}
               </div>
               <div className="chat-messages__list">
-                {messages.map((msg, i) => {
+                {groupedMessages.map((item, i) => {
+                  if (item.type === 'separator') {
+                    return (
+                      <div key={`sep-${item.date}`} className="chat-date-sep">
+                        <span>{item.date}</span>
+                      </div>
+                    );
+                  }
+                  const msg = item.msg;
                   const isMine = msg.senderId === senderId;
                   return (
                     <div key={msg.id || i} className={`chat-msg${isMine ? ' chat-msg--mine' : ''}`}>
@@ -246,6 +276,7 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
               </div>
               <form className="chat-input-form" onSubmit={handleSend}>
                 <input
+                  ref={inputRef}
                   className="chat-input"
                   value={input}
                   onChange={e => setInput(e.target.value)}

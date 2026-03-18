@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { studentApi, studentAccountApi } from '../../services/api';
+import { parseLocalDate } from '../../utils/date';
 import { API_BASE } from '../../config.js';
 import './StudentView.css';
 
@@ -76,18 +77,18 @@ function StudentView({ studentAccountId }) {
   });
 
   const upcoming = lessons
-    .filter(l => new Date(l.date) >= today)
+    .filter(l => parseLocalDate(l.date) >= today)
     .sort((a, b) => {
-      const d = new Date(a.date) - new Date(b.date);
+      const d = parseLocalDate(a.date) - parseLocalDate(b.date);
       return d !== 0 ? d : (a.time || '').localeCompare(b.time || '');
     });
 
   const past = lessons
-    .filter(l => new Date(l.date) < today)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+    .filter(l => parseLocalDate(l.date) < today)
+    .sort((a, b) => parseLocalDate(b.date) - parseLocalDate(a.date));
 
   const formatDate = (dateStr) => {
-    const d = new Date(dateStr);
+    const d = parseLocalDate(dateStr);
     const todayStr = new Date().toDateString();
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
     if (d.toDateString() === todayStr) return 'Сегодня';
@@ -187,7 +188,7 @@ function StudentView({ studentAccountId }) {
             <div className="sv-lessons">
               {upcoming.map((lesson, i) => {
                 const mats = getLessonMaterials(lesson.date);
-                const isNow = new Date(lesson.date).toDateString() === new Date().toDateString();
+                const isNow = parseLocalDate(lesson.date).toDateString() === new Date().toDateString();
                 return (
                   <div key={i} className={`sv-lesson-card ${isNow ? 'sv-today' : ''}`}>
                     <div className="sv-lesson-meta">

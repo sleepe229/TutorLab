@@ -49,6 +49,11 @@ public class JwtService {
         return getClaims(token).getSubject();
     }
 
+    /** Returns the JWT subject regardless of role (tutorId for TUTOR tokens, studentAccountId for STUDENT tokens). */
+    public String extractSubject(String token) {
+        return getClaims(token).getSubject();
+    }
+
     public boolean isTokenValid(String token) {
         try {
             getClaims(token);
@@ -56,6 +61,19 @@ public class JwtService {
         } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
+    }
+
+    public boolean isStudentToken(String token) {
+        try {
+            Claims claims = getClaims(token);
+            return "STUDENT".equals(claims.get("role", String.class));
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    public String extractRole(String token) {
+        return getClaims(token).get("role", String.class);
     }
 
     private Claims getClaims(String token) {

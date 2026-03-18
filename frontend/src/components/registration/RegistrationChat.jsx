@@ -244,13 +244,13 @@ function RegistrationChat({ onRegister, role = 'tutor', onBack }) {
                   <button type="button" onClick={togglePasswordVisibility}
                     className="password-toggle-btn" tabIndex={-1}>
                     {isPasswordVisible ? (
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                         <circle cx="12" cy="12" r="3"/>
                         <path d="M1 1l22 22M23 1L1 23"/>
                       </svg>
                     ) : (
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                         <circle cx="12" cy="12" r="3"/>
                       </svg>
@@ -262,17 +262,10 @@ function RegistrationChat({ onRegister, role = 'tutor', onBack }) {
                 disabled={loading || isTyping || !currentValue.trim()}
                 className="chat-submit-btn"
                 aria-label="Отправить">
-                {loading ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <circle cx="12" cy="12" r="9" strokeOpacity="0.3"/>
-                    <path d="M12 3a9 9 0 0 1 9 9" strokeLinecap="round"/>
-                  </svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12"/>
-                    <polyline points="13 6 19 12 13 18"/>
-                  </svg>
-                )}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="13 6 19 12 13 18"/>
+                </svg>
               </button>
             </div>
           </form>

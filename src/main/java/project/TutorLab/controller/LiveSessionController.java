@@ -2,7 +2,6 @@ package project.TutorLab.controller;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -12,9 +11,13 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import project.TutorLab.config.JwtService;
+import project.TutorLab.model.StudentAccount;
 import project.TutorLab.model.live.LiveSessionState;
 import project.TutorLab.service.LiveSessionService;
 import project.TutorLab.service.PdfService;
+import project.TutorLab.service.StudentAccountService;
+import project.TutorLab.service.StudentService;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,22 +40,71 @@ public class LiveSessionController {
 
     private final PdfService pdfService;
 
+    private final JwtService jwtService;
+
+    private final StudentAccountService studentAccountService;
+
+    private final StudentService studentService;
+
     @Value("${app.upload.dir:users-photos}")
     private String uploadDir;
 
-    public LiveSessionController(LiveSessionService liveSessionService, LiveSessionWsController wsController, PdfService pdfService) {
+    public LiveSessionController(LiveSessionService liveSessionService, LiveSessionWsController wsController,
+                                 PdfService pdfService, JwtService jwtService,
+                                 StudentAccountService studentAccountService, StudentService studentService) {
         this.liveSessionService = liveSessionService;
         this.wsController = wsController;
         this.pdfService = pdfService;
+        this.jwtService = jwtService;
+        this.studentAccountService = studentAccountService;
+        this.studentService = studentService;
+    }
+
+    public record LiveSessionSummary(boolean active, String sessionId) {
     }
 
     @PostMapping("/sessions")
     public ResponseEntity<LiveSessionState> createSession(
             @RequestParam String tutorId,
-            @RequestParam(required = false, defaultValue = "Новый урок") String title
+            @RequestParam(required = false, defaultValue = "Новый урок") String title,
+            jakarta.servlet.http.HttpServletRequest request
     ) {
-        LiveSessionState state = liveSessionService.createSession(tutorId, title);
+        String authenticatedTutorId = (String) request.getAttribute("tutorId");
+        if (authenticatedTutorId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!authenticatedTutorId.equals(tutorId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        LiveSessionState state = liveSessionService.createSession(authenticatedTutorId, title);
+        wsController.notifyTutorLive(authenticatedTutorId, state.getSessionId());
         return ResponseEntity.ok(state);
+    }
+
+    @GetMapping("/sessions/tutor/{tutorId}")
+    public ResponseEntity<LiveSessionSummary> getSessionByTutor(
+            @PathVariable String tutorId,
+            jakarta.servlet.http.HttpServletRequest request) {
+        String studentToken = request.getHeader("X-Student-Token");
+        if (studentToken == null || !jwtService.isStudentToken(studentToken)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        // Verify the student account has at least one student profile linked to this tutor
+        String studentAccountId = jwtService.extractSubject(studentToken);
+        StudentAccount account = studentAccountService.getById(studentAccountId);
+        if (account == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        List<String> linkedStudentIds = account.getLinkedStudentIds();
+        if (linkedStudentIds == null || linkedStudentIds.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        boolean isLinked = studentService.hasAnyStudentWithTutor(linkedStudentIds, tutorId);
+        if (!isLinked) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
+        LiveSessionState state = liveSessionService.getSessionByTutor(tutorId);
+        if (state == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(new LiveSessionSummary(true, state.getSessionId()));
     }
 
     @GetMapping("/sessions/{sessionId}")
@@ -183,8 +235,27 @@ public class LiveSessionController {
     }
 
     @DeleteMapping("/sessions/{sessionId}")
-    public ResponseEntity<Void> deleteSession(@PathVariable String sessionId) {
+    public ResponseEntity<Void> deleteSession(
+            @PathVariable String sessionId,
+            jakarta.servlet.http.HttpServletRequest request) {
+        String token = request.getHeader("X-Session-Token");
+        if (token == null || !jwtService.isTokenValid(token)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Ensure that only TUTOR-role tokens are allowed to delete sessions
+        String role = jwtService.extractRole(token);
+        if (!"TUTOR".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        LiveSessionState session = liveSessionService.getSession(sessionId);
+        if (session == null) return ResponseEntity.notFound().build();
+        if (!session.getTutorId().equals(jwtService.extractTutorId(token))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         liveSessionService.deleteSession(sessionId);
+        wsController.notifyTutorLiveEnded(session.getTutorId());
         return ResponseEntity.ok().build();
     }
 }

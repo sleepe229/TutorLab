@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.UUID;
 
 @Controller
 public class LiveSessionWsController {
@@ -114,6 +115,31 @@ public class LiveSessionWsController {
         messagingTemplate.convertAndSend(
                 "/topic/session." + sessionId + ".webrtc",
                 signal
+        );
+    }
+
+    // Уведомление студентов: преподаватель начал/завершил урок
+    @SuppressWarnings("null")
+    private final Map<String, String> tutorLiveTokens = new ConcurrentHashMap<>();
+
+    private String buildTutorLiveDestination(String tutorId) {
+        String token = tutorLiveTokens.computeIfAbsent(tutorId, id -> UUID.randomUUID().toString());
+        return "/topic/tutor." + tutorId + "." + token + ".live";
+    }
+
+    @SuppressWarnings("null")
+    public void notifyTutorLive(String tutorId, String sessionId) {
+        messagingTemplate.convertAndSend(
+                buildTutorLiveDestination(tutorId),
+                Map.of("active", true, "sessionId", sessionId)
+        );
+    }
+
+    @SuppressWarnings("null")
+    public void notifyTutorLiveEnded(String tutorId) {
+        messagingTemplate.convertAndSend(
+                buildTutorLiveDestination(tutorId),
+                Map.of("active", false)
         );
     }
 

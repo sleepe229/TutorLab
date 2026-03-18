@@ -13,4 +13,5 @@ public interface LiveSessionService {
     void addDrawPath(String sessionId, int slideIndex, LiveSessionState.DrawPath path);
     void clearSlideDrawings(String sessionId, int slideIndex);
     void deleteSession(String sessionId);
+    LiveSessionState getSessionByTutor(String tutorId);
 }

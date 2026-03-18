@@ -45,6 +45,7 @@ function LiveLessonTeacher({ tutorId }) {
   const studentRtcRef = useRef(null);
   const localVideoRef = useRef(null);
   const studentVideoRef = useRef(null);
+  const studentStreamRef = useRef(null);
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const clientRef = useRef(null);
@@ -74,6 +75,8 @@ function LiveLessonTeacher({ tutorId }) {
       }
     }
   }, [isVideoEnabled, isScreenSharing]);
+
+  // Note: student video assignment is handled via ref callback directly on the <video> element
 
   // ── Session init (with restore on page refresh) ───────────────────────
   useEffect(() => {
@@ -198,19 +201,36 @@ function LiveLessonTeacher({ tutorId }) {
 
   // ── WebRTC ────────────────────────────────────────────────────────────
   const handleWebRTCSignal = (data) => {
-    if (data.role === 'student') {
+    if (data.type !== 'signal') return;
+
+    // Ignore own echoes — STOMP broadcasts to all subscribers including sender
+    if (data.from === 'teacher') return;
+
+    if (data.role === 'teacher') {
+      // Student answered teacher's offer — route to teacher's own initiator peer
+      webrtcRef.current?.handleSignal(data.signal);
+    } else if (data.role === 'student') {
+      // Student is initiating their own stream toward teacher
+      // If we get a new offer, destroy any stale receiver peer first
+      if (data.signal?.type === 'offer' && studentRtcRef.current) {
+        studentRtcRef.current.stopStream();
+        studentRtcRef.current = null;
+        setStudentConnected(false);
+        if (studentVideoRef.current) studentVideoRef.current.srcObject = null;
+      }
       if (!studentRtcRef.current && clientRef.current) {
-        const rtc = new WebRTCService(clientRef.current, null, false, 'teacher');
+        // role='student' (student-initiated connection), sender='teacher' (I am the teacher)
+        const rtc = new WebRTCService(clientRef.current, null, false, 'student', 'teacher');
         rtc.onRemoteStream = (stream) => {
-          if (studentVideoRef.current) studentVideoRef.current.srcObject = stream;
+          studentStreamRef.current = stream;
           setStudentConnected(true);
+          // Assign directly in case video element is already mounted
+          if (studentVideoRef.current) studentVideoRef.current.srcObject = stream;
         };
         rtc.connect();
         studentRtcRef.current = rtc;
       }
       studentRtcRef.current?.handleSignal(data.signal);
-    } else if (data.type === 'signal' && webrtcRef.current) {
-      webrtcRef.current.handleSignal(data.signal);
     }
   };
 
@@ -384,12 +404,9 @@ function LiveLessonTeacher({ tutorId }) {
   const toggleAudio = async () => {
     if (!isAudioEnabled) {
       if (!clientRef.current) { toast.error('WebSocket не подключён'); return; }
-      const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher');
-      rtc.onRemoteStream = (stream) => {
-        const audio = new Audio();
-        audio.srcObject = stream;
-        audio.play().catch(() => {});
-      };
+      // role='teacher' (teacher-initiated), sender='teacher'
+      const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher', 'teacher');
+      rtc.onRemoteStream = () => {}; // teacher's mic peer — no remote video expected here
       const ok = await rtc.startStream({ audio: true, video: false });
       if (ok) {
         webrtcRef.current = rtc;
@@ -434,18 +451,15 @@ function LiveLessonTeacher({ tutorId }) {
       setIsMuted(false);
     }
 
-    const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher');
-    rtc.onRemoteStream = (stream) => {
-      const audio = new Audio();
-      audio.srcObject = stream;
-      audio.play().catch(() => {});
-    };
+    // role='teacher' (teacher-initiated), sender='teacher'
+    const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher', 'teacher');
+    rtc.onRemoteStream = () => {}; // teacher's camera peer — no remote video expected here
     const ok = await rtc.startStream({ audio: true, video: true });
     if (ok) {
       webrtcRef.current = rtc;
       setIsAudioEnabled(true);
       setIsVideoEnabled(true);
-      // srcObject is assigned via useEffect once the video element mounts
+      // srcObject assigned via useEffect once video element mounts
     } else {
       toast.error(mediaErrorMessage(rtc, 'камере'));
     }
@@ -458,20 +472,56 @@ function LiveLessonTeacher({ tutorId }) {
         screenStreamRef.current.getTracks().forEach(t => t.stop());
         screenStreamRef.current = null;
       }
+      webrtcRef.current?.stopStream();
+      webrtcRef.current = null;
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       setIsScreenSharing(false);
+      setIsAudioEnabled(false);
       return;
     }
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
       screenStreamRef.current = stream;
+
+      // Stop existing mic/camera peer if running
+      if (webrtcRef.current) {
+        webrtcRef.current.stopStream();
+        webrtcRef.current = null;
+        setIsAudioEnabled(false);
+        setIsVideoEnabled(false);
+        setIsMuted(false);
+      }
+
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+
+      // Send screen via WebRTC to student
+      if (clientRef.current && session) {
+        // role='teacher' (teacher-initiated), sender='teacher'
+        const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher', 'teacher');
+        rtc.onRemoteStream = () => {}; // screen share peer — no remote video expected
+        const started = rtc.startExistingStream(stream);
+        if (!started) {
+          toast.error(mediaErrorMessage(rtc, 'экрана'));
+          if (screenStreamRef.current) {
+            screenStreamRef.current.getTracks().forEach(t => t.stop());
+            screenStreamRef.current = null;
+          }
+          if (localVideoRef.current) localVideoRef.current.srcObject = null;
+          return;
+        }
+        webrtcRef.current = rtc;
+      }
+
       setIsScreenSharing(true);
-      // Stop when user ends share from browser UI
+
+      // Auto-stop when user clicks browser's "Stop sharing" button
       stream.getVideoTracks()[0].onended = () => {
+        webrtcRef.current?.stopStream();
+        webrtcRef.current = null;
         screenStreamRef.current = null;
         if (localVideoRef.current) localVideoRef.current.srcObject = null;
         setIsScreenSharing(false);
+        setIsAudioEnabled(false);
       };
     } catch (err) {
       if (err.name !== 'NotAllowedError') toast.error('Не удалось начать демонстрацию экрана');
@@ -700,7 +750,15 @@ function LiveLessonTeacher({ tutorId }) {
           )}
           {studentConnected && (
             <div className="video-bubble">
-              <video ref={studentVideoRef} autoPlay playsInline className="video-el" />
+              <video
+                ref={(el) => {
+                  studentVideoRef.current = el;
+                  if (el && studentStreamRef.current) el.srcObject = studentStreamRef.current;
+                }}
+                autoPlay
+                playsInline
+                className="video-el"
+              />
               <span className="video-bubble-label">Ученик</span>
             </div>
           )}

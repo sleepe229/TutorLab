@@ -256,5 +256,16 @@ public class StudentServiceImpl implements StudentService {
         studentRepository.save(student);
         return convertToResponseDto(student);
     }
+
+    @Override
+    public boolean hasAnyStudentWithTutor(List<String> studentIds, String tutorId) {
+        for (String studentId : studentIds) {
+            Student student = studentRepository.findById(studentId);
+            if (student != null && tutorId.equals(student.getTutorId())) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
