@@ -31,7 +31,7 @@ public class ChatController {
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
-    @PostMapping
+    @PostMapping(path = {"", "/"})
     public ResponseEntity<Chat> getOrCreateChat(@RequestBody Map<String, String> request) {
         String tutorId = request.get("tutorId");
         String studentAccountId = request.get("studentAccountId");
