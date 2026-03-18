@@ -49,6 +49,11 @@ public class JwtService {
         return getClaims(token).getSubject();
     }
 
+    /** Returns the JWT subject regardless of role (tutorId for TUTOR tokens, studentAccountId for STUDENT tokens). */
+    public String extractSubject(String token) {
+        return getClaims(token).getSubject();
+    }
+
     public boolean isTokenValid(String token) {
         try {
             getClaims(token);

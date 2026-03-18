@@ -12,9 +12,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import project.TutorLab.config.JwtService;
+import project.TutorLab.dto.StudentResponseDto;
+import project.TutorLab.model.StudentAccount;
 import project.TutorLab.model.live.LiveSessionState;
 import project.TutorLab.service.LiveSessionService;
 import project.TutorLab.service.PdfService;
+import project.TutorLab.service.StudentAccountService;
+import project.TutorLab.service.StudentService;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -39,14 +43,22 @@ public class LiveSessionController {
 
     private final JwtService jwtService;
 
+    private final StudentAccountService studentAccountService;
+
+    private final StudentService studentService;
+
     @Value("${app.upload.dir:users-photos}")
     private String uploadDir;
 
-    public LiveSessionController(LiveSessionService liveSessionService, LiveSessionWsController wsController, PdfService pdfService, JwtService jwtService) {
+    public LiveSessionController(LiveSessionService liveSessionService, LiveSessionWsController wsController,
+                                 PdfService pdfService, JwtService jwtService,
+                                 StudentAccountService studentAccountService, StudentService studentService) {
         this.liveSessionService = liveSessionService;
         this.wsController = wsController;
         this.pdfService = pdfService;
         this.jwtService = jwtService;
+        this.studentAccountService = studentAccountService;
+        this.studentService = studentService;
     }
 
     public record LiveSessionSummary(boolean active, String sessionId) {
@@ -78,6 +90,22 @@ public class LiveSessionController {
         if (studentToken == null || !jwtService.isStudentToken(studentToken)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+        // Verify the student account has at least one student profile linked to this tutor
+        String studentAccountId = jwtService.extractSubject(studentToken);
+        StudentAccount account = studentAccountService.getById(studentAccountId);
+        if (account == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        boolean isLinked = (account.getLinkedStudentIds() != null) &&
+            account.getLinkedStudentIds().stream().anyMatch(sid -> {
+                try {
+                    StudentResponseDto s = studentService.getStudentById(sid);
+                    return s != null && tutorId.equals(s.getTutorId());
+                } catch (Exception e) {
+                    return false;
+                }
+            });
+        if (!isLinked) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+
         LiveSessionState state = liveSessionService.getSessionByTutor(tutorId);
         if (state == null) return ResponseEntity.notFound().build();
         return ResponseEntity.ok(new LiveSessionSummary(true, state.getSessionId()));
@@ -211,10 +239,20 @@ public class LiveSessionController {
     }
 
     @DeleteMapping("/sessions/{sessionId}")
-    public ResponseEntity<Void> deleteSession(@PathVariable String sessionId) {
+    public ResponseEntity<Void> deleteSession(
+            @PathVariable String sessionId,
+            jakarta.servlet.http.HttpServletRequest request) {
+        String token = request.getHeader("X-Session-Token");
+        if (token == null || !jwtService.isTokenValid(token)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         LiveSessionState session = liveSessionService.getSession(sessionId);
+        if (session == null) return ResponseEntity.notFound().build();
+        if (!session.getTutorId().equals(jwtService.extractTutorId(token))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         liveSessionService.deleteSession(sessionId);
-        if (session != null) wsController.notifyTutorLiveEnded(session.getTutorId());
+        wsController.notifyTutorLiveEnded(session.getTutorId());
         return ResponseEntity.ok().build();
     }
 }

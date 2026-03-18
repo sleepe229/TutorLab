@@ -15,6 +15,7 @@ export const connectToTutorUpdates = (tutorIds, callbacks = {}) => {
   const stompClient = Stomp.over(socket);
   stompClient.debug = () => {};
   const subscriptions = [];
+  let isDisconnected = false;
 
   stompClient.connect({}, () => {
     tutorIds.forEach(tutorId => {
@@ -31,9 +32,12 @@ export const connectToTutorUpdates = (tutorIds, callbacks = {}) => {
 
   return {
     disconnect: () => {
+      if (isDisconnected) return;
+      isDisconnected = true;
       subscriptions.forEach(sub => sub.unsubscribe());
-      stompClient.disconnect();
-      socket.close();
+      subscriptions.length = 0;
+      if (stompClient?.connected) stompClient.disconnect();
+      if (socket.readyState < 2) socket.close(); // CONNECTING or OPEN
     },
   };
 };
