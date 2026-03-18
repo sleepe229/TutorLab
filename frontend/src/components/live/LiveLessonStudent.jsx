@@ -38,6 +38,7 @@ function LiveLessonStudent() {
   const studentRtcRef = useRef(null);
   const teacherVideoRef = useRef(null);
   const localVideoRef = useRef(null);
+  const teacherStreamRef = useRef(null);
   const clientRef = useRef(null);
   const canvasRef = useRef(null);
   const pointerTimeoutRef = useRef(null);
@@ -48,6 +49,7 @@ function LiveLessonStudent() {
       localVideoRef.current.srcObject = studentRtcRef.current.getLocalStream();
     }
   }, [isVideoEnabled]);
+  // Note: teacher video assignment is handled via ref callback directly on the <video> element
 
   useEffect(() => {
     const load = async () => {
@@ -140,17 +142,34 @@ function LiveLessonStudent() {
   const handleWebRTCSignal = (data) => {
     if (data.type !== 'signal') return;
 
-    if (!data.role || data.role === 'teacher') {
+    // Ignore own echoes — STOMP broadcasts to all subscribers including sender
+    if (data.from === 'student') return;
+
+    if (data.role === 'teacher') {
+      // Teacher is initiating their stream toward student
+      // If a new offer arrives, destroy the stale receiver peer first
+      if (data.signal?.type === 'offer' && teacherRtcRef.current) {
+        teacherRtcRef.current.stopStream();
+        teacherRtcRef.current = null;
+        setTeacherMediaConnected(false);
+        if (teacherVideoRef.current) teacherVideoRef.current.srcObject = null;
+      }
       if (!teacherRtcRef.current && clientRef.current) {
-        const rtc = new WebRTCService(clientRef.current, sessionId, false, 'student');
+        // role='teacher' (teacher-initiated connection), sender='student' (I am the student)
+        const rtc = new WebRTCService(clientRef.current, sessionId, false, 'teacher', 'student');
         rtc.onRemoteStream = (stream) => {
-          if (teacherVideoRef.current) teacherVideoRef.current.srcObject = stream;
+          teacherStreamRef.current = stream;
           setTeacherMediaConnected(true);
+          // Assign directly in case video element is already mounted
+          if (teacherVideoRef.current) teacherVideoRef.current.srcObject = stream;
         };
         rtc.connect();
         teacherRtcRef.current = rtc;
       }
       teacherRtcRef.current?.handleSignal(data.signal);
+    } else if (data.role === 'student') {
+      // Teacher answered student's offer — route to student's own initiator peer
+      studentRtcRef.current?.handleSignal(data.signal);
     }
   };
 
@@ -158,7 +177,8 @@ function LiveLessonStudent() {
   const toggleStudentAudio = async () => {
     if (!isAudioEnabled) {
       if (!clientRef.current) return;
-      const rtc = new WebRTCService(clientRef.current, sessionId, true, 'student');
+      // role='student' (student-initiated), sender='student'
+      const rtc = new WebRTCService(clientRef.current, sessionId, true, 'student', 'student');
       rtc.onRemoteStream = () => {};
       const ok = await rtc.startStream({ audio: true, video: false });
       if (ok) {
@@ -181,7 +201,8 @@ function LiveLessonStudent() {
   const toggleStudentCamera = async () => {
     if (!studentRtcRef.current) {
       if (!clientRef.current) return;
-      const rtc = new WebRTCService(clientRef.current, sessionId, true, 'student');
+      // role='student' (student-initiated), sender='student'
+      const rtc = new WebRTCService(clientRef.current, sessionId, true, 'student', 'student');
       rtc.onRemoteStream = () => {};
       const ok = await rtc.startStream({ audio: true, video: true });
       if (ok) {
@@ -210,7 +231,7 @@ function LiveLessonStudent() {
     clientRef.current?.disconnect();
     teacherRtcRef.current?.stopStream();
     studentRtcRef.current?.stopStream();
-    navigate('/');
+    navigate('/tutors');
   };
 
   // ── Draw (incoming from teacher) ──────────────────────────────────────
@@ -332,7 +353,15 @@ function LiveLessonStudent() {
         <div className="video-strip">
           {teacherMediaConnected && (
             <div className="video-bubble">
-              <video ref={teacherVideoRef} autoPlay playsInline className="video-el" />
+              <video
+                ref={(el) => {
+                  teacherVideoRef.current = el;
+                  if (el && teacherStreamRef.current) el.srcObject = teacherStreamRef.current;
+                }}
+                autoPlay
+                playsInline
+                className="video-el"
+              />
               <span className="video-bubble-label">Преподаватель</span>
             </div>
           )}

@@ -128,6 +128,25 @@
   border-color: rgba(248, 113, 113, 0.3);
 }
 
+.nav-unread-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  min-width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  line-height: 1;
+  pointer-events: none;
+}
+
 /* ── Page header ─────────────────────────────────────────────────────── */
 .page-header {
   display: flex;

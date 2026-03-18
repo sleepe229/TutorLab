@@ -99,7 +99,7 @@ function AppContent() {
     setStudentAccountId(null);
     ['studentAccountId', 'studentToken', 'studentRefreshToken', 'studentFirstName', 'studentLastName']
       .forEach(k => localStorage.removeItem(k));
-    navigate('/home');
+    navigate('/tutors');
   };
 
   // Landing: not logged in as either role
@@ -141,11 +141,8 @@ function AppContent() {
           path="/me"
           element={
             studentAccountId
-              ? <StudentDashboard
-                  studentAccountId={studentAccountId}
-                  onLogout={handleStudentLogout}
-                />
-              : <Navigate to="/home" replace />
+              ? <StudentDashboard studentAccountId={studentAccountId} onLogout={handleStudentLogout} />
+              : <Navigate to="/tutors" replace />
           }
         />
         {/* Public student cabinet — accessible by anyone with the link */}

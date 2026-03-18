@@ -6,6 +6,7 @@ import { API_BASE } from '../../config.js';
 import Calendar from './Calendar';
 import LessonModal from './LessonModal';
 import ThemeToggle from '../ui/ThemeToggle';
+import { parseLocalDate } from '../../utils/date';
 import './StudentDetail.css';
 
 const PAYMENT_LABELS = {
@@ -230,6 +231,15 @@ function StudentDetail({ tutorId }) {
             >
               Поделиться
             </button>
+            {student.studentAccountId && (
+              <button
+                className="btn btn-secondary"
+                style={{ fontSize: '13px', padding: '6px 14px' }}
+                onClick={() => navigate('/chat')}
+              >
+                Написать
+              </button>
+            )}
             <ThemeToggle />
           </div>
         </div>
@@ -306,7 +316,7 @@ function StudentDetail({ tutorId }) {
             {lessons.length > 0 && (
               <div className="payment-lessons">
                 <h3 className="payment-lessons-title">Статусы оплаты уроков</h3>
-                {[...lessons].sort((a, b) => new Date(a.date) - new Date(b.date)).map((l, i) => {
+                {[...lessons].sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date)).map((l, i) => {
                   const lessonKey = `${l.date}|${l.time}|${l.note || ''}`;
                   const status = student?.lessonPayments?.[lessonKey] || student?.lessonPayments?.[l.date] || 'PENDING';
                   const color = PAYMENT_COLORS[status] || '#f59e0b';
@@ -314,7 +324,7 @@ function StudentDetail({ tutorId }) {
                   const isTrial = lessonIndex <= trialLessonsCount;
                   const effectiveStatus = isTrial ? 'TRIAL' : status;
                   return (
-                    <div key={l.date} className="payment-lesson-row">
+                    <div key={lessonKey} className="payment-lesson-row">
                       <div className="payment-lesson-info">
                         <span className="payment-lesson-date">
                           {new Date(l.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
@@ -335,14 +345,6 @@ function StudentDetail({ tutorId }) {
                               onClick={() => handleSetPaymentStatus(lessonKey, 'PAID_EXTERNAL')}
                             >
                               Оплачено вне сервиса
-                            </button>
-                          )}
-                          {status !== 'PAID_PLATFORM' && (
-                            <button
-                              className="btn-payment btn-payment-platform"
-                              onClick={() => alert('Оплата через платформу скоро будет доступна')}
-                            >
-                              Оплатить
                             </button>
                           )}
                           {(status === 'PAID_EXTERNAL' || status === 'PAID_PLATFORM') && (
@@ -378,23 +380,20 @@ function StudentDetail({ tutorId }) {
                 Запланированные уроки
               </h3>
               <div className="lessons-list">
-                {lessons
-                  .filter(lesson => {
-                    const lessonDate = new Date(lesson.date);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    return lessonDate >= today;
-                  })
+                {(() => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const tomorrow = new Date(today);
+                  tomorrow.setDate(tomorrow.getDate() + 1);
+                  return lessons
+                  .filter(lesson => parseLocalDate(lesson.date) >= today)
                   .sort((a, b) => {
-                    const diff = new Date(a.date) - new Date(b.date);
+                    const diff = parseLocalDate(a.date) - parseLocalDate(b.date);
                     if (diff !== 0) return diff;
                     return (a.time || '').localeCompare(b.time || '');
                   })
                   .map((lesson, index) => {
-                    const lessonDate = new Date(lesson.date);
-                    const today = new Date();
-                    const tomorrow = new Date(today);
-                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const lessonDate = parseLocalDate(lesson.date);
 
                     let dateLabel = lessonDate.toLocaleDateString('ru-RU', {
                       day: 'numeric', month: 'long', weekday: 'long',
@@ -424,7 +423,8 @@ function StudentDetail({ tutorId }) {
                         )}
                       </div>
                     );
-                  })}
+                  })
+                  })()}
               </div>
             </div>
           )}

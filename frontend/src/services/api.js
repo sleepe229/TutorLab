@@ -163,6 +163,11 @@ export const studentAccountApi = {
     { headers: { 'X-Student-Token': token } }),
 };
 
+export const liveApi = {
+  getSessionByTutor: (tutorId, token) =>
+    api.get(`/live/sessions/tutor/${tutorId}`, { headers: { 'X-Student-Token': token } }),
+};
+
 export const joinApi = {
   // Student (with JWT token) joins a tutor by tutorId → creates student profile + links account
   joinTutor: (tutorId, token) =>

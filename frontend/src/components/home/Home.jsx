@@ -5,6 +5,7 @@ import StudentCard from './StudentCard';
 import ThemeToggle from '../ui/ThemeToggle';
 import Onboarding from '../ui/Onboarding';
 import InviteStudentModal from '../invite/InviteStudentModal';
+import { useUnreadCount } from '../../hooks/useUnreadCount';
 import './Home.css';
 
 function Home({ tutorId, onLogout }) {
@@ -18,6 +19,7 @@ function Home({ tutorId, onLogout }) {
   const navigate = useNavigate();
 
   const isAuthenticated = tutorId && tutorId !== 'temp';
+  const unreadCount = useUnreadCount('TUTOR', tutorId, null);
 
   useEffect(() => {
     loadStudents();
@@ -60,6 +62,10 @@ function Home({ tutorId, onLogout }) {
     } catch { /* silent */ }
   };
 
+  const handleMessage = (student) => {
+    navigate('/chat');
+  };
+
   const filteredStudents = search.trim()
     ? students.filter(s => `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase()))
     : students;
@@ -99,10 +105,14 @@ function Home({ tutorId, onLogout }) {
                   onClick={() => navigate('/chat')}
                   aria-label="Сообщения"
                   title="Сообщения"
+                  style={{ position: 'relative' }}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                   </svg>
+                  {unreadCount > 0 && (
+                    <span className="nav-unread-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                  )}
                 </button>
                 <button
                   className="nav-icon-btn"
@@ -238,6 +248,7 @@ function Home({ tutorId, onLogout }) {
                         onToggleFavorite={handleToggleFavorite}
                         tutorId={tutorId}
                         onStartLesson={handleStartLesson}
+                        onMessage={handleMessage}
                       />
                     ))}
                   </div>
@@ -259,6 +270,7 @@ function Home({ tutorId, onLogout }) {
                         onToggleFavorite={handleToggleFavorite}
                         tutorId={tutorId}
                         onStartLesson={handleStartLesson}
+                        onMessage={handleMessage}
                       />
                     ))}
                   </div>

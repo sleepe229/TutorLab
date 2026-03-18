@@ -3,6 +3,45 @@ import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 import { WS_URL } from '../config.js';
 
+/**
+ * Subscribes to live-session start/end events for a list of tutor IDs.
+ * Fires callbacks.onLiveSession(tutorId, { active, sessionId? }) on each event.
+ * Call the returned disconnect() when the component unmounts.
+ */
+export const connectToTutorUpdates = (tutorIds, callbacks = {}) => {
+  if (!tutorIds.length) return { disconnect: () => {} };
+
+  const socket = new SockJS(`${WS_URL}/ws`);
+  const stompClient = Stomp.over(socket);
+  stompClient.debug = () => {};
+  const subscriptions = [];
+  let isDisconnected = false;
+
+  stompClient.connect({}, () => {
+    tutorIds.forEach(tutorId => {
+      const sub = stompClient.subscribe(
+        `/topic/tutor.${tutorId}.live`,
+        (message) => callbacks.onLiveSession?.(tutorId, JSON.parse(message.body))
+      );
+      subscriptions.push(sub);
+    });
+  }, (error) => {
+    console.error('Tutor updates WebSocket connection error:', error);
+    callbacks.onError?.(error);
+  });
+
+  return {
+    disconnect: () => {
+      if (isDisconnected) return;
+      isDisconnected = true;
+      subscriptions.forEach(sub => sub.unsubscribe());
+      subscriptions.length = 0;
+      if (stompClient?.connected) stompClient.disconnect();
+      if (socket.readyState < 2) socket.close(); // CONNECTING or OPEN
+    },
+  };
+};
+
 export const connectToSession = (sessionId, callbacks = {}) => {
   let stompClient = null;
   let subscriptions = {};
