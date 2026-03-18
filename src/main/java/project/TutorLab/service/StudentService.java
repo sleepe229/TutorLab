@@ -18,5 +18,6 @@ public interface StudentService {
     StudentResponseDto updatePrice(String studentId, Integer price, int trialLessonsCount);
     void updateLessonPayment(String studentId, String date, String status);
     StudentResponseDto updateLessonDate(String studentId, String oldLessonDate, String newLessonDate);
+    boolean hasAnyStudentWithTutor(List<String> studentIds, String tutorId);
 }
 

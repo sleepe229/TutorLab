@@ -12,7 +12,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import project.TutorLab.config.JwtService;
-import project.TutorLab.dto.StudentResponseDto;
 import project.TutorLab.model.StudentAccount;
 import project.TutorLab.model.live.LiveSessionState;
 import project.TutorLab.service.LiveSessionService;
