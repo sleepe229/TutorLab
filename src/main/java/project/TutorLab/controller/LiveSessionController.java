@@ -95,15 +95,12 @@ public class LiveSessionController {
         StudentAccount account = studentAccountService.getById(studentAccountId);
         if (account == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
-        boolean isLinked = (account.getLinkedStudentIds() != null) &&
-            account.getLinkedStudentIds().stream().anyMatch(sid -> {
-                try {
-                    StudentResponseDto s = studentService.getStudentById(sid);
-                    return s != null && tutorId.equals(s.getTutorId());
-                } catch (Exception e) {
-                    return false;
-                }
-            });
+        List<String> linkedStudentIds = account.getLinkedStudentIds();
+        if (linkedStudentIds == null || linkedStudentIds.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        boolean isLinked = studentService.hasAnyStudentWithTutor(linkedStudentIds, tutorId);
         if (!isLinked) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 
         LiveSessionState state = liveSessionService.getSessionByTutor(tutorId);
