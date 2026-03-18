@@ -52,6 +52,7 @@ public class LiveSessionController {
             @RequestParam(required = false, defaultValue = "Новый урок") String title
     ) {
         LiveSessionState state = liveSessionService.createSession(tutorId, title);
+        wsController.notifyTutorLive(tutorId, state.getSessionId());
         return ResponseEntity.ok(state);
     }
 
@@ -191,7 +192,9 @@ public class LiveSessionController {
 
     @DeleteMapping("/sessions/{sessionId}")
     public ResponseEntity<Void> deleteSession(@PathVariable String sessionId) {
+        LiveSessionState session = liveSessionService.getSession(sessionId);
         liveSessionService.deleteSession(sessionId);
+        if (session != null) wsController.notifyTutorLiveEnded(session.getTutorId());
         return ResponseEntity.ok().build();
     }
 }

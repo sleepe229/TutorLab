@@ -33,8 +33,6 @@ public class LiveSessionServiceImpl implements LiveSessionService {
         state.setSlideDrawings(new HashMap<>());
 
         saveSession(state);
-        String tutorKey = "live:session:tutor:" + tutorId;
-        redisTemplate.opsForValue().set(tutorKey, id, Duration.ofHours(sessionTtlHours));
         return state;
     }
 
@@ -114,8 +112,10 @@ public class LiveSessionServiceImpl implements LiveSessionService {
 
     @SuppressWarnings("null")
     private void saveSession(LiveSessionState state) {
-        String key = KEY_PREFIX + state.getSessionId();
         Duration duration = Duration.ofHours(sessionTtlHours);
-        redisTemplate.opsForValue().set(key, state, duration);
+        redisTemplate.opsForValue().set(KEY_PREFIX + state.getSessionId(), state, duration);
+        // Keep the tutor→sessionId index TTL in sync so getSessionByTutor() never
+        // returns null while the session itself is still alive.
+        redisTemplate.opsForValue().set("live:session:tutor:" + state.getTutorId(), state.getSessionId(), duration);
     }
 }

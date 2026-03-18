@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { studentApi, studentAccountApi, liveApi } from '../../services/api';
+import { connectToTutorUpdates } from '../../services/wsClient';
 import { API_BASE } from '../../config.js'; // used for photo/material URLs
 import { parseLocalDate } from '../../utils/date';
 import { useUnreadCount } from '../../hooks/useUnreadCount';
@@ -12,7 +13,7 @@ function StudentDashboard({ studentAccountId, onLogout }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'schedule'
   const [liveSession, setLiveSession] = useState(null); // { sessionId, tutorName, tutorId }
-  const liveCheckRef = useRef(null);
+  const wsLiveRef = useRef(null);
 
   const token = localStorage.getItem('studentToken');
   const firstName = localStorage.getItem('studentFirstName') || '';
@@ -22,7 +23,7 @@ function StudentDashboard({ studentAccountId, onLogout }) {
   useEffect(() => { loadData(); }, [studentAccountId]);
 
   useEffect(() => {
-    return () => { if (liveCheckRef.current) clearInterval(liveCheckRef.current); };
+    return () => wsLiveRef.current?.disconnect();
   }, []);
 
   const loadData = async () => {
@@ -41,7 +42,7 @@ function StudentDashboard({ studentAccountId, onLogout }) {
       );
       const valid = loaded.filter(Boolean);
       setProfiles(valid);
-      startLivePolling(valid);
+      subscribeToLive(valid);
     } catch {
       toast.error('Не удалось загрузить данные');
     } finally {
@@ -49,29 +50,32 @@ function StudentDashboard({ studentAccountId, onLogout }) {
     }
   };
 
-  const startLivePolling = (profileList) => {
-    if (liveCheckRef.current) clearInterval(liveCheckRef.current);
+  const subscribeToLive = (profileList) => {
     const tutorIds = [...new Set(profileList.map(p => p.tutorId).filter(Boolean))];
     if (tutorIds.length === 0) return;
 
-    const checkSessions = async () => {
-      for (const tutorId of tutorIds) {
-        try {
-          const res = await liveApi.getSessionByTutor(tutorId);
-          const session = res.data;
-          const profile = profileList.find(p => p.tutorId === tutorId);
-          const tutorName = profile?.tutorName || 'Преподаватель';
-          setLiveSession(prev =>
-            prev?.sessionId === session.sessionId ? prev : { sessionId: session.sessionId, tutorName, tutorId }
-          );
-          return;
-        } catch { /* 404 = no active session for this tutor, continue */ }
-      }
-      setLiveSession(null);
-    };
+    const getTutorName = (tutorId) =>
+      profileList.find(p => p.tutorId === tutorId)?.tutorName || 'Преподаватель';
 
-    checkSessions();
-    liveCheckRef.current = setInterval(checkSessions, 10000);
+    // One-time REST check: detect sessions already running before WS connected
+    tutorIds.forEach(async (tutorId) => {
+      try {
+        const res = await liveApi.getSessionByTutor(tutorId);
+        setLiveSession({ sessionId: res.data.sessionId, tutorName: getTutorName(tutorId), tutorId });
+      } catch { /* 404 = no active session */ }
+    });
+
+    // Real-time updates via WebSocket
+    wsLiveRef.current?.disconnect();
+    wsLiveRef.current = connectToTutorUpdates(tutorIds, {
+      onLiveSession: (tutorId, data) => {
+        if (data.active) {
+          setLiveSession({ sessionId: data.sessionId, tutorName: getTutorName(tutorId), tutorId });
+        } else {
+          setLiveSession(prev => prev?.tutorId === tutorId ? null : prev);
+        }
+      },
+    });
   };
 
   const today = new Date();

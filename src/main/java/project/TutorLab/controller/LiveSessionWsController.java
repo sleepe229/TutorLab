@@ -117,6 +117,23 @@ public class LiveSessionWsController {
         );
     }
 
+    // Уведомление студентов: преподаватель начал/завершил урок
+    @SuppressWarnings("null")
+    public void notifyTutorLive(String tutorId, String sessionId) {
+        messagingTemplate.convertAndSend(
+                "/topic/tutor." + tutorId + ".live",
+                Map.of("active", true, "sessionId", sessionId)
+        );
+    }
+
+    @SuppressWarnings("null")
+    public void notifyTutorLiveEnded(String tutorId) {
+        messagingTemplate.convertAndSend(
+                "/topic/tutor." + tutorId + ".live",
+                Map.of("active", false)
+        );
+    }
+
     // Уведомление о загрузке презентации (вызывается из REST контроллера)
     @SuppressWarnings("null")
     public void notifyPresentationLoaded(String sessionId, List<String> slideUrls) {
