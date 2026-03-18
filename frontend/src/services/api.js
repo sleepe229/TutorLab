@@ -164,7 +164,8 @@ export const studentAccountApi = {
 };
 
 export const liveApi = {
-  getSessionByTutor: (tutorId) => api.get(`/live/sessions/tutor/${tutorId}`),
+  getSessionByTutor: (tutorId, token) =>
+    api.get(`/live/sessions/tutor/${tutorId}`, { headers: { 'X-Student-Token': token } }),
 };
 
 export const joinApi = {

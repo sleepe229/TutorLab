@@ -58,6 +58,15 @@ public class JwtService {
         }
     }
 
+    public boolean isStudentToken(String token) {
+        try {
+            Claims claims = getClaims(token);
+            return "STUDENT".equals(claims.get("role", String.class));
+        } catch (JwtException | IllegalArgumentException e) {
+            return false;
+        }
+    }
+
     private Claims getClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getSigningKey())

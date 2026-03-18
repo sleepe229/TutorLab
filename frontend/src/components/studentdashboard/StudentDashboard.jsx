@@ -60,7 +60,7 @@ function StudentDashboard({ studentAccountId, onLogout }) {
     // One-time REST check: detect sessions already running before WS connected
     tutorIds.forEach(async (tutorId) => {
       try {
-        const res = await liveApi.getSessionByTutor(tutorId);
+        const res = await liveApi.getSessionByTutor(tutorId, token);
         setLiveSession({ sessionId: res.data.sessionId, tutorName: getTutorName(tutorId), tutorId });
       } catch { /* 404 = no active session */ }
     });

@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import project.TutorLab.config.JwtService;
 import project.TutorLab.model.live.LiveSessionState;
 import project.TutorLab.service.LiveSessionService;
 import project.TutorLab.service.PdfService;
@@ -36,13 +37,16 @@ public class LiveSessionController {
 
     private final PdfService pdfService;
 
+    private final JwtService jwtService;
+
     @Value("${app.upload.dir:users-photos}")
     private String uploadDir;
 
-    public LiveSessionController(LiveSessionService liveSessionService, LiveSessionWsController wsController, PdfService pdfService) {
+    public LiveSessionController(LiveSessionService liveSessionService, LiveSessionWsController wsController, PdfService pdfService, JwtService jwtService) {
         this.liveSessionService = liveSessionService;
         this.wsController = wsController;
         this.pdfService = pdfService;
+        this.jwtService = jwtService;
     }
 
     public record LiveSessionSummary(boolean active, String sessionId) {
@@ -67,7 +71,13 @@ public class LiveSessionController {
     }
 
     @GetMapping("/sessions/tutor/{tutorId}")
-    public ResponseEntity<LiveSessionSummary> getSessionByTutor(@PathVariable String tutorId) {
+    public ResponseEntity<LiveSessionSummary> getSessionByTutor(
+            @PathVariable String tutorId,
+            jakarta.servlet.http.HttpServletRequest request) {
+        String studentToken = request.getHeader("X-Student-Token");
+        if (studentToken == null || !jwtService.isStudentToken(studentToken)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         LiveSessionState state = liveSessionService.getSessionByTutor(tutorId);
         if (state == null) return ResponseEntity.notFound().build();
         return ResponseEntity.ok(new LiveSessionSummary(true, state.getSessionId()));

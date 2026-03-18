@@ -499,7 +499,16 @@ function LiveLessonTeacher({ tutorId }) {
         // role='teacher' (teacher-initiated), sender='teacher'
         const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher', 'teacher');
         rtc.onRemoteStream = () => {}; // screen share peer — no remote video expected
-        rtc.startExistingStream(stream);
+        const started = rtc.startExistingStream(stream);
+        if (!started) {
+          toast.error(mediaErrorMessage(rtc, 'экрана'));
+          if (screenStreamRef.current) {
+            screenStreamRef.current.getTracks().forEach(t => t.stop());
+            screenStreamRef.current = null;
+          }
+          if (localVideoRef.current) localVideoRef.current.srcObject = null;
+          return;
+        }
         webrtcRef.current = rtc;
       }
 
