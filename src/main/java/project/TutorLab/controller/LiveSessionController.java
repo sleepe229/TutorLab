@@ -243,6 +243,13 @@ public class LiveSessionController {
         if (token == null || !jwtService.isTokenValid(token)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
+
+        // Ensure that only TUTOR-role tokens are allowed to delete sessions
+        String role = jwtService.extractRole(token);
+        if (!"TUTOR".equals(role)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         LiveSessionState session = liveSessionService.getSession(sessionId);
         if (session == null) return ResponseEntity.notFound().build();
         if (!session.getTutorId().equals(jwtService.extractTutorId(token))) {
