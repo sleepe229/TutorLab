@@ -1,7 +1,9 @@
 package project.TutorLab.service;
 
+import project.TutorLab.dto.StudentSessionHistoryDto;
 import project.TutorLab.model.StudentAccount;
 
+import java.util.List;
 import java.util.Map;
 
 public interface StudentAccountService {
@@ -18,4 +20,10 @@ public interface StudentAccountService {
     StudentAccount getById(String id);
 
     void linkToStudent(String accountId, String studentId);
+
+    /**
+     * Returns session history for all student profiles linked to this account.
+     * One DTO per linked student profile, ordered by most recent session descending.
+     */
+    List<StudentSessionHistoryDto> getStudentHistory(String accountId);
 }

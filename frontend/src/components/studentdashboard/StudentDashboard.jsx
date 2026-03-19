@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { studentApi, studentAccountApi, liveApi } from '../../services/api';
+import { studentApi, studentAccountApi, liveApi, progressApi } from '../../services/api';
 import { connectToTutorUpdates } from '../../services/wsClient';
 import { API_BASE } from '../../config.js'; // used for photo/material URLs
 import { parseLocalDate } from '../../utils/date';
@@ -11,7 +11,9 @@ import './StudentDashboard.css';
 function StudentDashboard({ studentAccountId, onLogout }) {
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'schedule'
+  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'schedule' | 'history' | 'progress'
+  const [sessionHistory, setSessionHistory] = useState([]);
+  const [progressNotes, setProgressNotes] = useState({});
   const [liveSession, setLiveSession] = useState(null); // { sessionId, tutorName, tutorId }
   const wsLiveRef = useRef(null);
 
@@ -43,6 +45,22 @@ function StudentDashboard({ studentAccountId, onLogout }) {
       const valid = loaded.filter(Boolean);
       setProfiles(valid);
       subscribeToLive(valid);
+
+      // Load session history
+      try {
+        const histRes = await studentAccountApi.getHistory(token);
+        setSessionHistory(histRes.data || []);
+      } catch { /* history unavailable */ }
+
+      // Load progress notes for each linked student
+      const notesMap = {};
+      await Promise.all(ids.map(async (id) => {
+        try {
+          const nr = await progressApi.getNotes(id);
+          notesMap[id] = nr.data || [];
+        } catch { notesMap[id] = []; }
+      }));
+      setProgressNotes(notesMap);
     } catch {
       toast.error('Не удалось загрузить данные');
     } finally {
@@ -139,6 +157,18 @@ function StudentDashboard({ studentAccountId, onLogout }) {
               onClick={() => setActiveTab('schedule')}
             >
               Расписание
+            </button>
+            <button
+              className={`sd-tab${activeTab === 'history' ? ' sd-tab--active' : ''}`}
+              onClick={() => setActiveTab('history')}
+            >
+              Мои занятия
+            </button>
+            <button
+              className={`sd-tab${activeTab === 'progress' ? ' sd-tab--active' : ''}`}
+              onClick={() => setActiveTab('progress')}
+            >
+              Прогресс
             </button>
           </nav>
 
@@ -326,7 +356,83 @@ function StudentDashboard({ studentAccountId, onLogout }) {
             })}
           </>
         ) : (
-          /* ── Schedule tab ── */
+          /* ── History tab ── */
+          activeTab === 'history' ? (
+          <div className="sd-schedule">
+            <div className="sd-greeting">
+              <h1>Мои занятия</h1>
+              <p className="sd-greeting-sub">История всех проведённых уроков</p>
+            </div>
+            {sessionHistory.length === 0 ? (
+              <div className="sd-link-section">
+                <p className="sd-link-hint">Нет завершённых уроков. После первого урока здесь появится история.</p>
+              </div>
+            ) : (
+              sessionHistory.map(group => (
+                <div key={group.studentId} className="sd-tutor-block">
+                  <h2 className="sd-section-title">
+                    {group.studentFirstName} {group.studentLastName}
+                    {group.tutorName && <span className="sd-tutor-name"> — {group.tutorName}</span>}
+                  </h2>
+                  <div className="sd-lessons">
+                    {(group.sessions || []).map(sess => (
+                      <SessionHistoryItem key={sess.snapshotId} session={sess} token={token} />
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        ) : activeTab === 'progress' ? (
+          <div className="sd-schedule">
+            <div className="sd-greeting">
+              <h1>Прогресс</h1>
+              <p className="sd-greeting-sub">Заметки репетитора о вашем обучении</p>
+            </div>
+            {profiles.length === 0 ? (
+              <div className="sd-link-section">
+                <p className="sd-link-hint">Нет данных о прогрессе.</p>
+              </div>
+            ) : (
+              profiles.map(student => {
+                const notes = progressNotes[student.id] || [];
+                return (
+                  <div key={student.id} className="sd-tutor-block">
+                    <h2 className="sd-section-title">
+                      {student.firstName} {student.lastName}
+                      {student.tutorName && <span className="sd-tutor-name"> — {student.tutorName}</span>}
+                    </h2>
+                    {notes.length === 0 ? (
+                      <p className="sd-empty">Нет заметок о прогрессе</p>
+                    ) : (
+                      <div className="sd-lessons">
+                        {notes.map(note => (
+                          <div key={note.id} className="sd-lesson-card">
+                            <div className="sd-lesson-meta">
+                              <span className="sd-lesson-date">
+                                {note.date ? new Date(note.date).toLocaleDateString('ru-RU') : ''}
+                              </span>
+                              <span className="sd-lesson-time">{'★'.repeat(note.rating)}{'☆'.repeat(5 - note.rating)}</span>
+                            </div>
+                            {note.noteText && <p className="sd-lesson-note">{note.noteText}</p>}
+                            {note.skillTags?.length > 0 && (
+                              <div className="sd-interests">
+                                {note.skillTags.map((tag, i) => (
+                                  <span key={i} className="sv-interest-tag">{tag}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        ) : (
+        /* ── Schedule tab ── */
           <div className="sd-schedule">
             <div className="sd-greeting">
               <h1>Расписание занятий</h1>
@@ -406,8 +512,83 @@ function StudentDashboard({ studentAccountId, onLogout }) {
               </section>
             )}
           </div>
-        )}
+        ))}
       </div>
+    </div>
+  );
+}
+
+// ── Session history item component ───────────────────────────────────────────
+function SessionHistoryItem({ session, token }) {
+  const [expanded, setExpanded] = useState(false);
+  const [recap, setRecap] = useState(null);
+  const [loadingRecap, setLoadingRecap] = useState(false);
+
+  const handleExpand = async () => {
+    setExpanded(!expanded);
+    if (!expanded && session.hasRecap && !recap) {
+      setLoadingRecap(true);
+      try {
+        const res = await studentAccountApi.getSnapshotRecap(token, session.snapshotId);
+        setRecap(res.data);
+      } catch { /* recap load failed */ } finally {
+        setLoadingRecap(false);
+      }
+    }
+  };
+
+  const formatDate = (dt) => {
+    if (!dt) return '';
+    return new Date(dt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+  };
+
+  return (
+    <div className="sd-lesson-card">
+      <div className="sd-lesson-meta" style={{ cursor: 'pointer' }} onClick={handleExpand}>
+        <span className="sd-lesson-date">{formatDate(session.endedAt)}</span>
+        <span className="sd-lesson-time">{session.durationMinutes} мин</span>
+        {session.slideCount > 0 && <span className="sd-lesson-time">{session.slideCount} слайдов</span>}
+        {session.hasRecap && <span className="sv-interest-tag">Конспект</span>}
+        <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)' }}>{expanded ? '▲' : '▼'}</span>
+      </div>
+      {session.title && <p className="sd-lesson-note">{session.title}</p>}
+      {expanded && (
+        <div style={{ marginTop: '8px', fontSize: '0.875rem' }}>
+          {loadingRecap && <p style={{ color: 'var(--text-secondary)' }}>Загрузка конспекта...</p>}
+          {recap && !recap.generationFailed && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {recap.topicsCovered?.length > 0 && (
+                <div>
+                  <strong>Темы урока:</strong>
+                  <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                    {recap.topicsCovered.map((t, i) => <li key={i}>{t}</li>)}
+                  </ul>
+                </div>
+              )}
+              {recap.struggledWith?.length > 0 && (
+                <div>
+                  <strong>Трудности:</strong>
+                  <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                    {recap.struggledWith.map((t, i) => <li key={i}>{t}</li>)}
+                  </ul>
+                </div>
+              )}
+              {recap.homeworkAssigned && (
+                <div><strong>Домашнее задание:</strong> {recap.homeworkAssigned}</div>
+              )}
+              {recap.nextSessionFocus && (
+                <div><strong>На следующий урок:</strong> {recap.nextSessionFocus}</div>
+              )}
+            </div>
+          )}
+          {!loadingRecap && !recap && session.hasRecap && (
+            <p style={{ color: 'var(--text-secondary)' }}>Не удалось загрузить конспект.</p>
+          )}
+          {!session.hasRecap && (
+            <p style={{ color: 'var(--text-secondary)' }}>Конспект не создан.</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

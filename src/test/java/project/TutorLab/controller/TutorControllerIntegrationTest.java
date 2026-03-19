@@ -3,6 +3,7 @@ package project.TutorLab.controller;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import project.TutorLab.dto.TutorLoginDto;
 import project.TutorLab.dto.TutorRegistrationDto;
 import project.TutorLab.dto.TutorResponseDto;
+import project.TutorLab.service.AuthRateLimiter;
 
 import java.util.Map;
 
@@ -22,6 +24,11 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Testcontainers
 class TutorControllerIntegrationTest {
+
+    // Bypass rate limiting in integration tests — tests make multiple register/login
+    // calls from the same IP, which would otherwise hit the 3-per-5min limit.
+    @MockBean
+    AuthRateLimiter authRateLimiter;
 
     @Container
     @SuppressWarnings("resource")

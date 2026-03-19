@@ -8,6 +8,7 @@ import project.TutorLab.model.live.LiveSessionState;
 import project.TutorLab.service.LiveSessionService;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -31,6 +32,7 @@ public class LiveSessionServiceImpl implements LiveSessionService {
         state.setCurrentSlideIndex(0);
         state.setSlideUrls(new ArrayList<>());
         state.setSlideDrawings(new HashMap<>());
+        state.setStartedAt(LocalDateTime.now());
 
         saveSession(state);
         return state;

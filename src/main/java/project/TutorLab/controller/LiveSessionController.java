@@ -1,5 +1,6 @@
 package project.TutorLab.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,10 +13,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import project.TutorLab.config.JwtService;
+import project.TutorLab.model.LessonRecap;
+import project.TutorLab.model.SessionSnapshot;
+import project.TutorLab.model.Student;
 import project.TutorLab.model.StudentAccount;
 import project.TutorLab.model.live.LiveSessionState;
+import project.TutorLab.repository.LessonRecapRepository;
+import project.TutorLab.repository.SessionSnapshotRepository;
+import project.TutorLab.repository.StudentRepository;
 import project.TutorLab.service.LiveSessionService;
 import project.TutorLab.service.PdfService;
+import project.TutorLab.service.RecapService;
 import project.TutorLab.service.StudentAccountService;
 import project.TutorLab.service.StudentService;
 
@@ -23,9 +31,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/live")
@@ -35,29 +47,39 @@ public class LiveSessionController {
     private static final Logger log = LoggerFactory.getLogger(LiveSessionController.class);
 
     private final LiveSessionService liveSessionService;
-
     private final LiveSessionWsController wsController;
-
     private final PdfService pdfService;
-
     private final JwtService jwtService;
-
     private final StudentAccountService studentAccountService;
-
     private final StudentService studentService;
+    private final SessionSnapshotRepository sessionSnapshotRepository;
+    private final LessonRecapRepository lessonRecapRepository;
+    private final StudentRepository studentRepository;
+    private final RecapService recapService;
+    private final ObjectMapper objectMapper;
 
     @Value("${app.upload.dir:users-photos}")
     private String uploadDir;
 
     public LiveSessionController(LiveSessionService liveSessionService, LiveSessionWsController wsController,
                                  PdfService pdfService, JwtService jwtService,
-                                 StudentAccountService studentAccountService, StudentService studentService) {
+                                 StudentAccountService studentAccountService, StudentService studentService,
+                                 SessionSnapshotRepository sessionSnapshotRepository,
+                                 LessonRecapRepository lessonRecapRepository,
+                                 StudentRepository studentRepository,
+                                 RecapService recapService,
+                                 ObjectMapper objectMapper) {
         this.liveSessionService = liveSessionService;
         this.wsController = wsController;
         this.pdfService = pdfService;
         this.jwtService = jwtService;
         this.studentAccountService = studentAccountService;
         this.studentService = studentService;
+        this.sessionSnapshotRepository = sessionSnapshotRepository;
+        this.lessonRecapRepository = lessonRecapRepository;
+        this.studentRepository = studentRepository;
+        this.recapService = recapService;
+        this.objectMapper = objectMapper;
     }
 
     public record LiveSessionSummary(boolean active, String sessionId) {
@@ -223,6 +245,112 @@ public class LiveSessionController {
             log.error("Error serving slide: sessionId={}, filename={}", sessionId, filename, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    /**
+     * Ends a live session and creates an immutable SessionSnapshot.
+     *
+     * Governance:
+     *  - Idempotent: repeated calls with same sessionId return the existing snapshotId.
+     *  - Snapshot is immutable after creation — never modified.
+     *  - slideDrawings deep-copied via ObjectMapper to prevent shared references.
+     *  - Recap generated asynchronously (does not block this response).
+     *  - Live session is deleted after snapshot is committed.
+     */
+    @PostMapping("/sessions/{sessionId}/end")
+    public ResponseEntity<Map<String, Object>> endSession(
+            @PathVariable String sessionId,
+            @RequestBody(required = false) Map<String, String> body,
+            jakarta.servlet.http.HttpServletRequest request) {
+
+        String authenticatedTutorId = (String) request.getAttribute("tutorId");
+        if (authenticatedTutorId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        LiveSessionState session = liveSessionService.getSession(sessionId);
+        if (session == null) return ResponseEntity.notFound().build();
+        if (!authenticatedTutorId.equals(session.getTutorId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        // Idempotency check: if snapshot already exists for this sessionId, return it
+        String existingSnapshotId = sessionSnapshotRepository.findSnapshotIdBySessionId(sessionId);
+        if (existingSnapshotId != null) {
+            log.info("Idempotent end: snapshot {} already exists for session {}", existingSnapshotId, sessionId);
+            return ResponseEntity.ok(Map.of("snapshotId", existingSnapshotId, "recapQueued", false));
+        }
+
+        String linkedStudentId = body != null ? body.get("studentId") : null;
+        Student linkedStudent = null;
+        if (linkedStudentId != null && !linkedStudentId.isBlank()) {
+            linkedStudent = studentRepository.findById(linkedStudentId);
+            if (linkedStudent == null || !authenticatedTutorId.equals(linkedStudent.getTutorId())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Student not found or not owned by this tutor"));
+            }
+        }
+
+        // Build immutable snapshot — deep-copy drawings via ObjectMapper
+        SessionSnapshot snapshot = new SessionSnapshot();
+        snapshot.setId(UUID.randomUUID().toString());
+        snapshot.setSessionId(sessionId);
+        snapshot.setTutorId(authenticatedTutorId);
+        snapshot.setTitle(session.getTitle());
+        snapshot.setStartedAt(session.getStartedAt());
+        snapshot.setEndedAt(LocalDateTime.now());
+
+        if (session.getStartedAt() != null) {
+            snapshot.setDurationMinutes((int) ChronoUnit.MINUTES.between(session.getStartedAt(), snapshot.getEndedAt()));
+        }
+
+        // Deep-copy slideUrls (defensive copy)
+        snapshot.setSlideUrls(session.getSlideUrls() != null ? new ArrayList<>(session.getSlideUrls()) : new ArrayList<>());
+
+        // Deep-copy slideDrawings via serialization round-trip to prevent shared object references
+        try {
+            @SuppressWarnings("unchecked")
+            Map<Integer, List<LiveSessionState.DrawPath>> drawingsCopy = objectMapper.convertValue(
+                    session.getSlideDrawings(),
+                    objectMapper.getTypeFactory().constructMapType(
+                            HashMap.class,
+                            objectMapper.getTypeFactory().constructType(Integer.class),
+                            objectMapper.getTypeFactory().constructCollectionType(List.class, LiveSessionState.DrawPath.class)
+                    )
+            );
+            snapshot.setSlideDrawings(drawingsCopy);
+        } catch (Exception e) {
+            log.warn("Could not deep-copy drawings for session {}, using empty map: {}", sessionId, e.getMessage());
+            snapshot.setSlideDrawings(new HashMap<>());
+        }
+
+        if (linkedStudent != null) {
+            snapshot.setStudentId(linkedStudentId);
+            snapshot.setStudentFirstName(linkedStudent.getFirstName());
+            snapshot.setStudentLastName(linkedStudent.getLastName());
+        }
+
+        // Commit immutable snapshot BEFORE deleting live session
+        sessionSnapshotRepository.save(snapshot);
+        log.info("Snapshot {} created for session {} (tutor={})", snapshot.getId(), sessionId, authenticatedTutorId);
+
+        // Delete ephemeral live session
+        liveSessionService.deleteSession(sessionId);
+        wsController.notifyTutorLiveEnded(authenticatedTutorId);
+
+        // Fire-and-forget async recap (non-blocking, retry-safe)
+        recapService.generateRecapAsync(snapshot);
+
+        return ResponseEntity.ok(Map.of("snapshotId", snapshot.getId(), "recapQueued", true));
+    }
+
+    /**
+     * Returns a LessonRecap by snapshotId.
+     * Public endpoint (no auth) — snapshotId is a UUID, unguessable.
+     * Returns 404 if recap is not yet generated.
+     */
+    @GetMapping("/recap/{snapshotId}")
+    public ResponseEntity<LessonRecap> getRecap(@PathVariable String snapshotId) {
+        LessonRecap recap = lessonRecapRepository.findBySnapshotId(snapshotId);
+        if (recap == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(recap);
     }
 
     @PostMapping("/sessions/{sessionId}/clear-drawings")
