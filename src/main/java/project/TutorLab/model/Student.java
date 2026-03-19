@@ -1,5 +1,6 @@
 package project.TutorLab.model;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -19,6 +20,11 @@ public class Student {
     private int trialLessonsCount = 1;
     // key = lesson date string, value = PENDING|PAID_EXTERNAL|PAID_PLATFORM|TRIAL
     private Map<String, String> lessonPayments;
+    /**
+     * Tutor-authored progress notes. Embedded in this object (no separate Redis key).
+     * Capped at 500 notes in service layer to prevent unbounded growth.
+     */
+    private List<ProgressNote> progressNotes = new ArrayList<>();
 
     public Student() {
     }
@@ -133,6 +139,15 @@ public class Student {
 
     public void setLessonPayments(Map<String, String> lessonPayments) {
         this.lessonPayments = lessonPayments;
+    }
+
+    public List<ProgressNote> getProgressNotes() {
+        if (progressNotes == null) progressNotes = new ArrayList<>();
+        return progressNotes;
+    }
+
+    public void setProgressNotes(List<ProgressNote> progressNotes) {
+        this.progressNotes = progressNotes;
     }
 }
 

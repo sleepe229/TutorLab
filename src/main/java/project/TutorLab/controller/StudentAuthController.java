@@ -5,9 +5,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import project.TutorLab.config.JwtService;
+import project.TutorLab.dto.StudentSessionHistoryDto;
+import project.TutorLab.model.LessonRecap;
+import project.TutorLab.model.SessionSnapshot;
 import project.TutorLab.model.StudentAccount;
+import project.TutorLab.repository.LessonRecapRepository;
+import project.TutorLab.repository.SessionSnapshotRepository;
+import project.TutorLab.service.AuthRateLimiter;
 import project.TutorLab.service.StudentAccountService;
 
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -21,8 +29,18 @@ public class StudentAuthController {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private AuthRateLimiter authRateLimiter;
+
+    @Autowired
+    private SessionSnapshotRepository sessionSnapshotRepository;
+
+    @Autowired
+    private LessonRecapRepository lessonRecapRepository;
+
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> register(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        authRateLimiter.checkRegisterLimit(request);
         String email = body.get("email");
         String password = body.get("password");
         String firstName = body.get("firstName");
@@ -45,7 +63,8 @@ public class StudentAuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> login(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        authRateLimiter.checkLoginLimit(request);
         String email = body.get("email");
         String password = body.get("password");
         if (email == null || password == null) {
@@ -111,6 +130,62 @@ public class StudentAuthController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
+    }
+
+    /** Returns lesson history for all linked student profiles. */
+    @GetMapping("/history")
+    public ResponseEntity<?> getHistory(
+            @RequestHeader(value = "X-Student-Token", required = false) String tokenHeader) {
+        String accountId = extractAccountId(tokenHeader);
+        if (accountId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        List<StudentSessionHistoryDto> history = studentAccountService.getStudentHistory(accountId);
+        return ResponseEntity.ok(history);
+    }
+
+    /** Returns the LessonRecap for a snapshot. Validates ownership. */
+    @GetMapping("/snapshot/{snapshotId}/recap")
+    public ResponseEntity<?> getSnapshotRecap(
+            @PathVariable String snapshotId,
+            @RequestHeader(value = "X-Student-Token", required = false) String tokenHeader) {
+        String accountId = extractAccountId(tokenHeader);
+        if (accountId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        if (!isSnapshotOwnedByAccount(snapshotId, accountId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        LessonRecap recap = lessonRecapRepository.findBySnapshotId(snapshotId);
+        if (recap == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(recap);
+    }
+
+    /** Returns slide URLs for a snapshot (for replay). Validates ownership. */
+    @GetMapping("/snapshot/{snapshotId}/slides")
+    public ResponseEntity<?> getSnapshotSlides(
+            @PathVariable String snapshotId,
+            @RequestHeader(value = "X-Student-Token", required = false) String tokenHeader) {
+        String accountId = extractAccountId(tokenHeader);
+        if (accountId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        if (!isSnapshotOwnedByAccount(snapshotId, accountId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        SessionSnapshot snapshot = sessionSnapshotRepository.findById(snapshotId);
+        if (snapshot == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(snapshot.getSlideUrls());
+    }
+
+    /**
+     * Ownership check: snapshotId must belong to one of the account's linked student profiles.
+     * Prevents cross-account data access.
+     */
+    private boolean isSnapshotOwnedByAccount(String snapshotId, String accountId) {
+        StudentAccount account = studentAccountService.getById(accountId);
+        if (account == null) return false;
+        for (String studentId : account.getLinkedStudentIds()) {
+            SessionSnapshot snap = sessionSnapshotRepository.findById(snapshotId);
+            if (snap != null && studentId.equals(snap.getStudentId())) return true;
+        }
+        return false;
     }
 
     /** Decode JWT to extract the student account ID (JWT subject). */

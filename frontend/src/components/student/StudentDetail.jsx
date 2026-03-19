@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { studentApi } from '../../services/api';
+import { studentApi, progressApi } from '../../services/api';
 import { API_BASE } from '../../config.js';
 import Calendar from './Calendar';
 import LessonModal from './LessonModal';
@@ -485,7 +485,120 @@ function StudentDetail({ tutorId }) {
           </form>
         </div>
 
+        <ProgressNoteSection studentId={id} />
+
       </div>
+    </div>
+  );
+}
+
+// ── Progress Note Section ─────────────────────────────────────────────────────
+function ProgressNoteSection({ studentId }) {
+  const [notes, setNotes] = useState([]);
+  const [showForm, setShowForm] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [skillTags, setSkillTags] = useState('');
+  const [rating, setRating] = useState(3);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    progressApi.getNotes(studentId)
+      .then(r => setNotes(r.data || []))
+      .catch(() => {});
+  }, [studentId]);
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    if (!noteText.trim()) return;
+    setSaving(true);
+    try {
+      await progressApi.addNote(studentId, {
+        noteText: noteText.trim(),
+        skillTags: skillTags.split(',').map(s => s.trim()).filter(Boolean),
+        rating: Number(rating),
+      });
+      const r = await progressApi.getNotes(studentId);
+      setNotes(r.data || []);
+      setNoteText('');
+      setSkillTags('');
+      setRating(3);
+      setShowForm(false);
+      toast.success('Заметка добавлена');
+    } catch {
+      toast.error('Ошибка при сохранении заметки');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="section-block">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <h2 className="section-title">Заметки о прогрессе</h2>
+        <button className="btn btn-secondary" onClick={() => setShowForm(!showForm)}>
+          {showForm ? 'Отмена' : '+ Добавить заметку'}
+        </button>
+      </div>
+      {showForm && (
+        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+          <textarea
+            value={noteText}
+            onChange={e => setNoteText(e.target.value)}
+            placeholder="Текст заметки о прогрессе..."
+            rows={3}
+            style={{ borderRadius: 8, padding: '8px 12px', fontSize: '0.9rem',
+              background: 'var(--bg-secondary)', color: 'var(--text-primary)',
+              border: '1px solid var(--glass-border)', resize: 'vertical' }}
+          />
+          <input
+            type="text"
+            value={skillTags}
+            onChange={e => setSkillTags(e.target.value)}
+            placeholder="Теги через запятую (напр: алгебра, дроби)"
+            style={{ borderRadius: 8, padding: '8px 12px', fontSize: '0.9rem',
+              background: 'var(--bg-secondary)', color: 'var(--text-primary)',
+              border: '1px solid var(--glass-border)' }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Оценка:</span>
+            {[1,2,3,4,5].map(n => (
+              <button type="button" key={n} onClick={() => setRating(n)}
+                style={{ fontSize: '1.25rem', background: 'none', border: 'none', cursor: 'pointer',
+                  color: n <= rating ? '#f59e0b' : 'var(--text-secondary)' }}>
+                ★
+              </button>
+            ))}
+          </div>
+          <button type="submit" className="btn btn-primary" disabled={saving} style={{ alignSelf: 'flex-start' }}>
+            {saving ? 'Сохранение...' : 'Сохранить заметку'}
+          </button>
+        </form>
+      )}
+      {notes.length === 0 ? (
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Нет заметок о прогрессе.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {notes.map(note => (
+            <div key={note.id} style={{ background: 'var(--bg-secondary)', borderRadius: 10,
+              padding: '12px 16px', border: '1px solid var(--glass-border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  {note.date ? new Date(note.date).toLocaleDateString('ru-RU') : ''}
+                </span>
+                <span style={{ color: '#f59e0b' }}>{'★'.repeat(note.rating)}{'☆'.repeat(5 - note.rating)}</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.9rem' }}>{note.noteText}</p>
+              {note.skillTags?.length > 0 && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                  {note.skillTags.map((tag, i) => (
+                    <span key={i} className="sv-interest-tag">{tag}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
