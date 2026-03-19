@@ -6,11 +6,21 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import project.TutorLab.config.JwtService;
+import project.TutorLab.dto.SnapshotSummaryDto;
+import project.TutorLab.dto.StudentSessionHistoryDto;
+import project.TutorLab.model.SessionSnapshot;
+import project.TutorLab.model.Student;
 import project.TutorLab.model.StudentAccount;
+import project.TutorLab.model.Tutor;
+import project.TutorLab.repository.LessonRecapRepository;
+import project.TutorLab.repository.SessionSnapshotRepository;
 import project.TutorLab.repository.StudentAccountRepository;
+import project.TutorLab.repository.StudentRepository;
+import project.TutorLab.repository.TutorRepository;
 import project.TutorLab.service.StudentAccountService;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +43,18 @@ public class StudentAccountServiceImpl implements StudentAccountService {
 
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
+
+    @Autowired
+    private SessionSnapshotRepository sessionSnapshotRepository;
+
+    @Autowired
+    private LessonRecapRepository lessonRecapRepository;
+
+    @Autowired
+    private StudentRepository studentRepository;
+
+    @Autowired
+    private TutorRepository tutorRepository;
 
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
@@ -110,6 +132,53 @@ public class StudentAccountServiceImpl implements StudentAccountService {
             account.setLinkedStudentIds(ids);
             accountRepository.save(account);
         }
+    }
+
+    @Override
+    public List<StudentSessionHistoryDto> getStudentHistory(String accountId) {
+        StudentAccount account = accountRepository.findById(accountId);
+        if (account == null) return new ArrayList<>();
+
+        List<StudentSessionHistoryDto> result = new ArrayList<>();
+        for (String studentId : account.getLinkedStudentIds()) {
+            List<SessionSnapshot> snapshots = sessionSnapshotRepository.findByStudentId(studentId);
+            if (snapshots.isEmpty()) continue;
+
+            // Sort by endedAt descending
+            snapshots.sort(Comparator.comparing(
+                    s -> s.getEndedAt() != null ? s.getEndedAt() : java.time.LocalDateTime.MIN,
+                    Comparator.reverseOrder()));
+
+            Student student = studentRepository.findById(studentId);
+            String firstName = student != null ? student.getFirstName()
+                    : snapshots.get(0).getStudentFirstName();
+            String lastName = student != null ? student.getLastName()
+                    : snapshots.get(0).getStudentLastName();
+            String tutorId = student != null ? student.getTutorId() : snapshots.get(0).getTutorId();
+            Tutor tutor = tutorId != null ? tutorRepository.findById(tutorId) : null;
+
+            List<SnapshotSummaryDto> summaries = new ArrayList<>();
+            for (SessionSnapshot snap : snapshots) {
+                SnapshotSummaryDto summary = new SnapshotSummaryDto();
+                summary.setSnapshotId(snap.getId());
+                summary.setTitle(snap.getTitle());
+                summary.setEndedAt(snap.getEndedAt());
+                summary.setDurationMinutes(snap.getDurationMinutes());
+                summary.setSlideCount(snap.getSlideUrls() != null ? snap.getSlideUrls().size() : 0);
+                summary.setHasRecap(lessonRecapRepository.findBySnapshotId(snap.getId()) != null);
+                summaries.add(summary);
+            }
+
+            StudentSessionHistoryDto dto = new StudentSessionHistoryDto();
+            dto.setStudentId(studentId);
+            dto.setStudentFirstName(firstName);
+            dto.setStudentLastName(lastName);
+            dto.setTutorId(tutorId);
+            dto.setTutorName(tutor != null ? tutor.getFullName() : null);
+            dto.setSessions(summaries);
+            result.add(dto);
+        }
+        return result;
     }
 
     private Map<String, Object> buildResponse(StudentAccount account) {

@@ -5,13 +5,16 @@ import org.springframework.stereotype.Service;
 import project.TutorLab.dto.StudentCardDto;
 import project.TutorLab.dto.StudentCreateDto;
 import project.TutorLab.dto.StudentResponseDto;
+import project.TutorLab.model.ProgressNote;
 import project.TutorLab.model.Student;
 import project.TutorLab.model.Tutor;
 import project.TutorLab.repository.StudentRepository;
 import project.TutorLab.repository.TutorRepository;
 import project.TutorLab.service.StudentService;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -266,6 +269,36 @@ public class StudentServiceImpl implements StudentService {
             }
         }
         return false;
+    }
+
+    private static final int MAX_PROGRESS_NOTES = 500;
+
+    @Override
+    public ProgressNote addProgressNote(String studentId, ProgressNote note) {
+        Student student = studentRepository.findById(studentId);
+        if (student == null) throw new IllegalArgumentException("Student not found: " + studentId);
+
+        note.setId(UUID.randomUUID().toString());
+        if (note.getDate() == null) note.setDate(LocalDateTime.now());
+
+        List<ProgressNote> notes = student.getProgressNotes();
+        if (notes.size() >= MAX_PROGRESS_NOTES) {
+            // Remove oldest note to stay within cap
+            notes.remove(notes.size() - 1);
+        }
+        notes.add(0, note); // prepend (newest first)
+        student.setProgressNotes(notes);
+        studentRepository.save(student);
+        return note;
+    }
+
+    @Override
+    public List<ProgressNote> getProgressNotes(String studentId) {
+        Student student = studentRepository.findById(studentId);
+        if (student == null) throw new IllegalArgumentException("Student not found: " + studentId);
+        List<ProgressNote> notes = student.getProgressNotes();
+        notes.sort(Comparator.comparing(ProgressNote::getDate, Comparator.nullsLast(Comparator.reverseOrder())));
+        return notes;
     }
 }
 

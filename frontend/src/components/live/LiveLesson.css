@@ -719,3 +719,103 @@
 }
 .screen-share-button:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
 .screen-share-button.active { background: #8b5cf6; color: #fff; border-color: #8b5cf6; }
+
+/* ── End-lesson modal ─────────────────────────────────────────────────── */
+.end-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.end-modal {
+  background: var(--bg-primary, #1c2333);
+  border: 1px solid var(--glass-border, rgba(255,255,255,0.1));
+  border-radius: 16px;
+  padding: 28px 32px;
+  min-width: 360px;
+  max-width: 520px;
+  width: 90%;
+  color: var(--text-primary, #e6edf3);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.end-modal-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.end-modal-hint {
+  color: var(--text-secondary, #8b949e);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.end-modal-select {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border, rgba(255,255,255,0.1));
+  background: var(--bg-secondary, #161b22);
+  color: var(--text-primary, #e6edf3);
+  font-size: 0.9rem;
+}
+
+.end-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.end-modal-recap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 0.875rem;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.end-modal-recap ul {
+  margin: 4px 0 0 16px;
+  padding: 0;
+}
+
+.end-modal-recap li {
+  margin-bottom: 2px;
+}
+
+.btn-danger {
+  background: #da3633;
+  color: #fff;
+  border: none;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-danger:hover { background: #b91c1c; }
+.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+  background: var(--bg-secondary, #21262d);
+  color: var(--text-primary, #e6edf3);
+  border: 1px solid var(--glass-border, rgba(255,255,255,0.1));
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-secondary:hover { border-color: var(--accent-primary, #5B73F5); }
+.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }

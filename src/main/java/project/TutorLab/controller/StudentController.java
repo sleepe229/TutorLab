@@ -4,11 +4,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import project.TutorLab.config.JwtService;
 import project.TutorLab.dto.StudentCardDto;
 import project.TutorLab.dto.StudentCreateDto;
 import project.TutorLab.dto.StudentResponseDto;
+import project.TutorLab.model.ProgressNote;
 import project.TutorLab.service.StudentService;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -18,9 +21,11 @@ import java.util.Map;
 public class StudentController {
 
     private final StudentService studentService;
+    private final JwtService jwtService;
 
-    public StudentController(StudentService studentService) {
+    public StudentController(StudentService studentService, JwtService jwtService) {
         this.studentService = studentService;
+        this.jwtService = jwtService;
     }
 
     @PostMapping("/tutor/{tutorId}")
@@ -163,6 +168,61 @@ public class StudentController {
                     : 1;
             StudentResponseDto response = studentService.updatePrice(id, price, trialCount);
             return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * Dual-auth endpoint: accepts either tutor (X-Session-Token) or student (X-Student-Token).
+     * Excluded from AuthInterceptor — auth is validated here.
+     * POST: requires tutor auth. GET: requires either tutor or student auth.
+     */
+    @PostMapping("/{id}/progress-notes")
+    public ResponseEntity<?> addProgressNote(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> body,
+            jakarta.servlet.http.HttpServletRequest request) {
+
+        String sessionToken = request.getHeader("X-Session-Token");
+        if (sessionToken == null || !jwtService.isTokenValid(sessionToken)
+                || !"TUTOR".equals(jwtService.extractRole(sessionToken))) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        try {
+            ProgressNote note = new ProgressNote();
+            note.setSnapshotId(body.get("snapshotId") instanceof String s ? s : null);
+            note.setNoteText(body.get("noteText") instanceof String s ? s : "");
+            note.setRating(body.get("rating") instanceof Number n ? n.intValue() : 3);
+            if (body.get("skillTags") instanceof List<?> tags) {
+                note.setSkillTags(tags.stream().map(Object::toString).toList());
+            }
+            ProgressNote saved = studentService.addProgressNote(id, note);
+            return ResponseEntity.ok(Map.of("noteId", saved.getId()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/{id}/progress-notes")
+    public ResponseEntity<?> getProgressNotes(
+            @PathVariable String id,
+            jakarta.servlet.http.HttpServletRequest request) {
+
+        // Accept either tutor token or student token
+        String sessionToken = request.getHeader("X-Session-Token");
+        String studentToken = request.getHeader("X-Student-Token");
+        boolean hasTutorAuth = sessionToken != null && jwtService.isTokenValid(sessionToken);
+        boolean hasStudentAuth = studentToken != null && jwtService.isStudentToken(studentToken);
+
+        if (!hasTutorAuth && !hasStudentAuth) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        try {
+            List<ProgressNote> notes = studentService.getProgressNotes(id);
+            return ResponseEntity.ok(notes);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
