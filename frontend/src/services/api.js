@@ -161,11 +161,24 @@ export const studentAccountApi = {
   link: (token, studentId) => api.post('/students/auth/link',
     { studentId },
     { headers: { 'X-Student-Token': token } }),
+  getHistory: (token) => api.get('/students/auth/history', { headers: { 'X-Student-Token': token } }),
+  getSnapshotRecap: (token, snapshotId) =>
+    api.get(`/students/auth/snapshot/${snapshotId}/recap`, { headers: { 'X-Student-Token': token } }),
+  getSnapshotSlides: (token, snapshotId) =>
+    api.get(`/students/auth/snapshot/${snapshotId}/slides`, { headers: { 'X-Student-Token': token } }),
 };
 
 export const liveApi = {
   getSessionByTutor: (tutorId, token) =>
     api.get(`/live/sessions/tutor/${tutorId}`, { headers: { 'X-Student-Token': token } }),
+  endSession: (sessionId, studentId) =>
+    api.post(`/live/sessions/${sessionId}/end`, studentId ? { studentId } : {}),
+  getRecap: (snapshotId) => api.get(`/live/recap/${snapshotId}`),
+};
+
+export const progressApi = {
+  addNote: (studentId, note) => api.post(`/students/${studentId}/progress-notes`, note),
+  getNotes: (studentId) => api.get(`/students/${studentId}/progress-notes`),
 };
 
 export const joinApi = {

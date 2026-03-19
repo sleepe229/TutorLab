@@ -3,6 +3,7 @@ package project.TutorLab.service;
 import project.TutorLab.dto.StudentCardDto;
 import project.TutorLab.dto.StudentCreateDto;
 import project.TutorLab.dto.StudentResponseDto;
+import project.TutorLab.model.ProgressNote;
 
 import java.util.List;
 
@@ -19,5 +20,11 @@ public interface StudentService {
     void updateLessonPayment(String studentId, String date, String status);
     StudentResponseDto updateLessonDate(String studentId, String oldLessonDate, String newLessonDate);
     boolean hasAnyStudentWithTutor(List<String> studentIds, String tutorId);
+
+    /** Adds a progress note to the student. Capped at 500 notes per student. */
+    ProgressNote addProgressNote(String studentId, ProgressNote note);
+
+    /** Returns all progress notes for a student, newest first. */
+    List<ProgressNote> getProgressNotes(String studentId);
 }
 

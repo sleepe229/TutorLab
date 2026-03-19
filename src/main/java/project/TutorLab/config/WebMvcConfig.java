@@ -35,7 +35,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/students/auth/**",
                         "/api/tutors/public",
                         "/api/chats/**",
-                        "/api/join/**"
+                        "/api/join/**",
+                        // Recap is UUID-protected (unguessable), no auth needed
+                        "/api/live/recap/**",
+                        // Progress notes: dual-auth (tutor or student) handled in controller
+                        "/api/students/*/progress-notes"
                 );
     }
 }

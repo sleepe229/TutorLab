@@ -8,8 +8,10 @@ import project.TutorLab.dto.TutorLoginDto;
 import project.TutorLab.dto.TutorRegistrationDto;
 import project.TutorLab.dto.TutorResponseDto;
 import project.TutorLab.dto.TutorUpdateDto;
+import project.TutorLab.service.AuthRateLimiter;
 import project.TutorLab.service.TutorService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 
 @RestController
@@ -18,13 +20,17 @@ import java.util.List;
 public class TutorController {
 
     private final TutorService tutorService;
+    private final AuthRateLimiter authRateLimiter;
 
-    public TutorController(TutorService tutorService) {
+    public TutorController(TutorService tutorService, AuthRateLimiter authRateLimiter) {
         this.tutorService = tutorService;
+        this.authRateLimiter = authRateLimiter;
     }
 
     @PostMapping("/register")
-    public ResponseEntity<TutorResponseDto> registerTutor(@RequestBody TutorRegistrationDto registrationDto) {
+    public ResponseEntity<TutorResponseDto> registerTutor(@RequestBody TutorRegistrationDto registrationDto,
+                                                           HttpServletRequest request) {
+        authRateLimiter.checkRegisterLimit(request);
         try {
             TutorResponseDto response = tutorService.registerTutor(registrationDto);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -34,7 +40,9 @@ public class TutorController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<TutorResponseDto> loginTutor(@RequestBody TutorLoginDto loginDto) {
+    public ResponseEntity<TutorResponseDto> loginTutor(@RequestBody TutorLoginDto loginDto,
+                                                        HttpServletRequest request) {
+        authRateLimiter.checkLoginLimit(request);
         try {
             TutorResponseDto response = tutorService.loginTutor(loginDto);
             return ResponseEntity.ok(response);

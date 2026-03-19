@@ -1,6 +1,7 @@
 package project.TutorLab.model.live;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -13,6 +14,8 @@ public class LiveSessionState implements Serializable {
     private int currentSlideIndex;
     private List<String> slideUrls = new ArrayList<>();
     private Map<Integer, List<DrawPath>> slideDrawings = new HashMap<>();
+    /** Set once when the session is created — used to compute durationMinutes in SessionSnapshot. */
+    private LocalDateTime startedAt;
 
     // Getters & Setters
     public String getSessionId() {
@@ -61,6 +64,14 @@ public class LiveSessionState implements Serializable {
 
     public void setSlideDrawings(Map<Integer, List<DrawPath>> slideDrawings) {
         this.slideDrawings = slideDrawings;
+    }
+
+    public LocalDateTime getStartedAt() {
+        return startedAt;
+    }
+
+    public void setStartedAt(LocalDateTime startedAt) {
+        this.startedAt = startedAt;
     }
 
     // Inner classes
