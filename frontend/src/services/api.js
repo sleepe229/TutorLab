@@ -227,7 +227,8 @@ export const liveApi = {
 
 export const progressApi = {
   addNote: (studentId, note) => api.post(`/students/${studentId}/progress-notes`, note),
-  getNotes: (studentId) => api.get(`/students/${studentId}/progress-notes`),
+  getNotes: (studentId, token) => api.get(`/students/${studentId}/progress-notes`,
+    token ? { headers: { 'X-Student-Token': token } } : undefined),
 };
 
 export const joinApi = {
