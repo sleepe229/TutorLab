@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
 import { studentApi, studentAccountApi } from '../../services/api';
 import { parseLocalDate } from '../../utils/date';
@@ -30,6 +31,9 @@ function StudentView({ studentAccountId }) {
   if (loading) {
     return (
       <div className="sv-container">
+        <Helmet>
+          <meta name="robots" content="noindex, nofollow" />
+        </Helmet>
         <header className="sv-header">
           <div className="sv-header-inner">
             <div className="sv-brand">
@@ -46,6 +50,9 @@ function StudentView({ studentAccountId }) {
   if (!student) {
     return (
       <div className="sv-container">
+        <Helmet>
+          <meta name="robots" content="noindex, nofollow" />
+        </Helmet>
         <header className="sv-header">
           <div className="sv-header-inner">
             <div className="sv-brand">
@@ -124,6 +131,9 @@ function StudentView({ studentAccountId }) {
 
   return (
     <div className="sv-container">
+      <Helmet>
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
       <header className="sv-header">
         <div className="sv-header-inner">
           <div className="sv-brand">

@@ -285,6 +285,57 @@
   font-size: 15px;
 }
 
+/* ── Skeleton loaders ────────────────────────────────────────────────── */
+@keyframes mkt-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.mkt-skeleton {
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--bg-tertiary, #21262d) 25%, var(--bg-hover, #30363d) 50%, var(--bg-tertiary, #21262d) 75%);
+  background-size: 800px 100%;
+  animation: mkt-shimmer 1.4s infinite;
+}
+
+.mkt-skeleton--avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mkt-skeleton--name {
+  height: 16px;
+  width: 140px;
+  margin-bottom: 8px;
+}
+
+.mkt-skeleton--rate {
+  height: 13px;
+  width: 80px;
+}
+
+.mkt-skeleton--tags {
+  height: 24px;
+  width: 60%;
+  margin: 12px 0 8px;
+}
+
+.mkt-skeleton--text {
+  height: 13px;
+  width: 100%;
+  margin-bottom: 6px;
+}
+
+.mkt-skeleton--text-short {
+  width: 70%;
+}
+
+.mkt-card--skeleton {
+  pointer-events: none;
+}
+
 /* ── Responsive ──────────────────────────────────────────────────────── */
 @media (max-width: 600px) {
   .mkt-body { padding: 24px 16px 48px; }
