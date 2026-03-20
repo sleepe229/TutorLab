@@ -8,6 +8,7 @@ import project.TutorLab.config.JwtService;
 import project.TutorLab.dto.StudentCardDto;
 import project.TutorLab.dto.StudentCreateDto;
 import project.TutorLab.dto.StudentResponseDto;
+import project.TutorLab.dto.StudentUpdateDto;
 import project.TutorLab.model.ProgressNote;
 import project.TutorLab.service.StudentService;
 
@@ -175,6 +176,20 @@ public class StudentController {
             }
             StudentResponseDto response = studentService.addLessonMaterial(id, lessonDate, materialUrl);
             return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PutMapping("/{id}/info")
+    public ResponseEntity<StudentResponseDto> updateStudentInfo(
+            @PathVariable String id,
+            @RequestBody StudentUpdateDto dto,
+            HttpServletRequest servletRequest) {
+        ResponseEntity<Void> ownershipCheck = checkStudentOwnership(id, servletRequest);
+        if (ownershipCheck != null) return ResponseEntity.status(ownershipCheck.getStatusCode()).build();
+        try {
+            return ResponseEntity.ok(studentService.updateStudentInfo(id, dto));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }

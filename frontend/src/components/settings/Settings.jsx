@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { tutorApi } from '../../services/api';
+import TutorNav from '../ui/TutorNav';
 import './Settings.css';
 
-function Settings({ tutorId, onBack }) {
+function Settings({ tutorId, onBack, onLogout }) {
   const [tutor, setTutor] = useState(null);
   const [formData, setFormData] = useState({
     fullName: '',
@@ -100,6 +101,7 @@ function Settings({ tutorId, onBack }) {
   if (loading) {
     return (
       <div className="settings-container">
+        <TutorNav tutorId={tutorId} activePage="settings" onLogout={onLogout} />
         <div className="settings-content">
           <div className="loading">Загрузка...</div>
         </div>
@@ -109,11 +111,9 @@ function Settings({ tutorId, onBack }) {
 
   return (
     <div className="settings-container">
+      <TutorNav tutorId={tutorId} activePage="settings" onLogout={onLogout} />
       <div className="settings-content">
         <div className="settings-header">
-          <button className="back-button" onClick={onBack}>
-            ← Назад
-          </button>
           <h1>Настройки</h1>
         </div>
 
