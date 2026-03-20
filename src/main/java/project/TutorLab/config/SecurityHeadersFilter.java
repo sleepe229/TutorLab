@@ -41,11 +41,14 @@ public class SecurityHeadersFilter implements Filter {
         // Content Security Policy
         httpResponse.setHeader("Content-Security-Policy",
                 "default-src 'self'; " +
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+                "script-src 'self' 'unsafe-inline'; " +
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
                 "font-src 'self' https://fonts.gstatic.com; " +
                 "img-src 'self' data: blob:; " +
-                "connect-src 'self' ws: wss: http://localhost:* https:;");
+                "connect-src 'self' ws: wss: https:;");
+
+        // HSTS: enforce HTTPS for 2 years (required on Render where nginx is not in the path)
+        httpResponse.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
 
         chain.doFilter(request, response);
     }
