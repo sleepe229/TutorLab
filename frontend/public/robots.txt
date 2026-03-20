@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+Allow: /tutors
+
+Disallow: /home
+Disallow: /settings
+Disallow: /live/
+Disallow: /student/
+Disallow: /schedule
+Disallow: /me
+Disallow: /invite/
+Disallow: /s/
+Disallow: /chat
+Disallow: /api/
+
+Sitemap: https://tutorlab.onrender.com/sitemap.xml
