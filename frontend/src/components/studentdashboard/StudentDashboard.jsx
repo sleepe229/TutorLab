@@ -56,7 +56,7 @@ function StudentDashboard({ studentAccountId, onLogout }) {
       const notesMap = {};
       await Promise.all(ids.map(async (id) => {
         try {
-          const nr = await progressApi.getNotes(id);
+          const nr = await progressApi.getNotes(id, token);
           notesMap[id] = nr.data || [];
         } catch { notesMap[id] = []; }
       }));
