@@ -10,19 +10,22 @@ import Settings from './components/settings/Settings';
 import StudentDetail from './components/student/StudentDetail';
 import Schedule from './components/schedule/Schedule';
 import StudentView from './components/studentview/StudentView';
-import StudentDashboard from './components/studentdashboard/StudentDashboard';
 import InviteHandler from './components/invite/InviteHandler';
+import Footer from './components/ui/Footer';
 import JoinTutor from './components/join/JoinTutor';
 import TutorMarketplace from './components/marketplace/TutorMarketplace';
 import PrivacyPage from './components/legal/PrivacyPage';
 import TermsPage from './components/legal/TermsPage';
+import AboutPage from './components/about/AboutPage';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 import './App.css';
 
-// Lazy-load heavy live-lesson components (include simple-peer/stompjs/sockjs)
+// Lazy-load components that pull in heavy deps (stompjs/sockjs/simple-peer)
 const LiveLessonTeacher = lazy(() => import('./components/live/LiveLessonTeacher'));
 const LiveLessonStudent = lazy(() => import('./components/live/LiveLessonStudent'));
 const ChatPage = lazy(() => import('./components/chat/ChatPage'));
+// StudentDashboard imports wsClient which statically imports stompjs/sockjs — lazy to keep stomp out of entry chunk
+const StudentDashboard = lazy(() => import('./components/studentdashboard/StudentDashboard'));
 
 /** Landing: choose role before showing the auth chat */
 function RoleChoice({ onSelect }) {
@@ -38,7 +41,7 @@ function RoleChoice({ onSelect }) {
           <div className="brand-logo-mark" style={{ width: 48, height: 48, fontSize: 18, borderRadius: 12, background: '#5B73F5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800 }}>TL</div>
           <h1 className="role-choice-title">TutorLab</h1>
         </div>
-        <p className="role-choice-sub">Выберите, как вы хотите войти</p>
+        <p className="role-choice-sub">Управляйте учениками, проводите онлайн-уроки с интерактивной доской и находите студентов через маркетплейс репетиторов.</p>
         <div className="role-choice-buttons">
           <button className="role-btn role-btn-tutor" onClick={() => onSelect('tutor')}>
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -58,6 +61,7 @@ function RoleChoice({ onSelect }) {
           </button>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }
@@ -181,7 +185,12 @@ function AppContent() {
           path="/me"
           element={
             studentAccountId
-              ? <><NoIndexMeta /><StudentDashboard studentAccountId={studentAccountId} onLogout={handleStudentLogout} /></>
+              ? (
+                <Suspense fallback={null}>
+                  <NoIndexMeta />
+                  <StudentDashboard studentAccountId={studentAccountId} onLogout={handleStudentLogout} />
+                </Suspense>
+              )
               : <Navigate to="/tutors" replace />
           }
         />
@@ -225,22 +234,26 @@ function AppContent() {
                 : <Navigate to="/home" replace />
           }
         />
-        {/* General tutor invite link — anyone visiting gets added as student */}
+        {/* General tutor invite link — noindex (ephemeral invite, not SEO-relevant) */}
         <Route
           path="/join/:tutorId"
           element={
-            <JoinTutor
-              studentAccountId={studentAccountId}
-              onStudentAuth={handleStudentAuth}
-            />
+            <>
+              <NoIndexMeta />
+              <JoinTutor
+                studentAccountId={studentAccountId}
+                onStudentAuth={handleStudentAuth}
+              />
+            </>
           }
         />
         {/* Tutor marketplace — accessible to everyone */}
         <Route path="/tutors" element={<TutorMarketplace studentAccountId={studentAccountId} />} />
 
-        {/* Legal pages */}
+        {/* Legal and about pages */}
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/terms" element={<TermsPage />} />
+        <Route path="/about" element={<AboutPage />} />
 
         <Route path="/" element={<Navigate to="/home" replace />} />
       </Routes>

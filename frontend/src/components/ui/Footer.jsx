@@ -12,6 +12,7 @@ function Footer() {
         </div>
         <nav className="site-footer__links" aria-label="Нижнее меню">
           <Link to="/tutors">Репетиторы</Link>
+          <Link to="/about">О платформе</Link>
           <Link to="/privacy">Политика конфиденциальности</Link>
           <Link to="/terms">Условия использования</Link>
           <a href="mailto:support@tutorlab.ru">Поддержка</a>

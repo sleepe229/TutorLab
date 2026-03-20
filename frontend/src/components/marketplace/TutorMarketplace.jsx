@@ -184,6 +184,10 @@ function TutorMarketplace({ studentAccountId }) {
             </div>
           </div>
 
+          <h2 className="mkt-section-title">
+            {loading ? 'Загрузка репетиторов...' : `Репетиторы${filtered.length ? ` (${filtered.length})` : ''}`}
+          </h2>
+
           {loading ? (
             <div className="mkt-grid">
               {Array.from({ length: 6 }).map((_, i) => <TutorCardSkeleton key={i} />)}

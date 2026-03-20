@@ -1,23 +1,27 @@
 # TutorLab
 
-> TutorLab — онлайн-платформа для репетиторов: управление учениками, живые онлайн-уроки с интерактивной доской, PDF-презентации и маркетплейс репетиторов.
+> [EN] TutorLab is an online platform for private tutors (репетиторы) to manage students, run live lessons with an interactive whiteboard and PDF slide sync, and list their profiles on a public tutor marketplace.
 
-## О платформе
+> [RU] TutorLab — онлайн-платформа для репетиторов: управление учениками, живые онлайн-уроки с интерактивной доской, PDF-презентации и маркетплейс репетиторов.
 
-TutorLab предоставляет репетиторам полный набор инструментов для работы онлайн. Преподаватели могут управлять базой учеников, вести расписание занятий, проводить живые онлайн-уроки с интерактивной доской и загрузкой PDF-слайдов, а также принимать оплату через личный кабинет. Ученики получают доступ к личному кабинету, истории занятий и учебным материалам.
+# license: https://creativecommons.org/licenses/by/4.0/
 
-## Маркетплейс репетиторов
+## Pages
 
-- URL: https://tutorlab.onrender.com/tutors
-- Описание: Каталог репетиторов с фильтрацией по предмету и стоимости занятия. Репетиторы указывают предметы, почасовую ставку и описание опыта.
+- [Tutor Marketplace](https://tutorlab.onrender.com/tutors): Browse and filter tutors by subject and hourly rate. Tutors list subjects they teach, pricing, and a bio.
+- [About](https://tutorlab.onrender.com/about): Platform overview, feature list, tech stack, and contact info.
+- [Privacy Policy](https://tutorlab.onrender.com/privacy): Data processing rules under Russian Federal Law No. 152-FZ. Data stored in Redis with 30-day TTL.
+- [Terms of Use](https://tutorlab.onrender.com/terms): Service usage rules for tutors and students.
 
-## Технологии
+## Platform Details
 
-- Backend: Spring Boot (Java 21), Redis
-- Frontend: React (SPA), WebSocket (STOMP/SockJS), WebRTC (аудио/видео)
-- Развёртывание: Render.com
+- Backend: Spring Boot (Java 21), Redis (no relational DB)
+- Frontend: React SPA, WebSocket via STOMP/SockJS, WebRTC audio/video
+- Hosting: Render.com (US East)
+- Language: Russian (ru-RU)
+- Primary market: Russian-speaking tutors and students
 
-## Контакт
+## Contact
 
-- Сайт: https://tutorlab.onrender.com
-- Поддержка: support@tutorlab.ru
+- Website: https://tutorlab.onrender.com
+- Support: support@tutorlab.ru
