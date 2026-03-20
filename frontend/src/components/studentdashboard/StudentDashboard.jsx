@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { studentApi, studentAccountApi, liveApi, progressApi } from '../../services/api';
 import { connectToTutorUpdates } from '../../services/wsClient';
-import { API_BASE } from '../../config.js'; // used for photo/material URLs
+import { API_BASE } from '../../config.js';
 import { parseLocalDate } from '../../utils/date';
 import { useUnreadCount } from '../../hooks/useUnreadCount';
 import ThemeToggle from '../ui/ThemeToggle';
@@ -12,11 +12,13 @@ import './StudentDashboard.css';
 function StudentDashboard({ studentAccountId, onLogout }) {
   const navigate = useNavigate();
   const [profiles, setProfiles] = useState([]);
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'schedule' | 'history' | 'progress'
+  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'schedule' | 'progress'
   const [sessionHistory, setSessionHistory] = useState([]);
   const [progressNotes, setProgressNotes] = useState({});
-  const [liveSession, setLiveSession] = useState(null); // { sessionId, tutorName, tutorId }
+  const [liveSession, setLiveSession] = useState(null);
+  const [pastExpanded, setPastExpanded] = useState(false);
   const wsLiveRef = useRef(null);
 
   const token = localStorage.getItem('studentToken');
@@ -35,6 +37,7 @@ function StudentDashboard({ studentAccountId, onLogout }) {
     try {
       const meRes = await studentAccountApi.getMe(token);
       const acc = meRes.data;
+      setEmail(acc.email || '');
 
       const ids = acc.linkedStudentIds || [];
       const loaded = await Promise.all(
@@ -48,13 +51,11 @@ function StudentDashboard({ studentAccountId, onLogout }) {
       setProfiles(valid);
       subscribeToLive(valid);
 
-      // Load session history
       try {
         const histRes = await studentAccountApi.getHistory(token);
         setSessionHistory(histRes.data || []);
       } catch { /* history unavailable */ }
 
-      // Load progress notes for each linked student
       const notesMap = {};
       await Promise.all(ids.map(async (id) => {
         try {
@@ -77,7 +78,6 @@ function StudentDashboard({ studentAccountId, onLogout }) {
     const getTutorName = (tutorId) =>
       profileList.find(p => p.tutorId === tutorId)?.tutorName || 'Преподаватель';
 
-    // One-time REST check: detect sessions already running before WS connected
     tutorIds.forEach(async (tutorId) => {
       try {
         const res = await liveApi.getSessionByTutor(tutorId, token);
@@ -85,7 +85,6 @@ function StudentDashboard({ studentAccountId, onLogout }) {
       } catch { /* 404 = no active session */ }
     });
 
-    // Real-time updates via WebSocket
     wsLiveRef.current?.disconnect();
     wsLiveRef.current = connectToTutorUpdates(tutorIds, {
       onLiveSession: (tutorId, data) => {
@@ -125,10 +124,8 @@ function StudentDashboard({ studentAccountId, onLogout }) {
       name: decodeURIComponent(url.split('/').pop()),
     }));
 
-  const getPhotoUrl = (url) =>
-    url ? (url.startsWith('/api/') ? `${API_BASE}${url}` : url) : null;
-
   const displayName = firstName + (lastName ? ` ${lastName}` : '');
+  const initials = (firstName?.charAt(0) || '') + (lastName?.charAt(0) || '');
 
   const allUpcoming = profiles
     .flatMap(s => parseLessons(s).filter(l => parseLocalDate(l.date) >= today))
@@ -137,6 +134,36 @@ function StudentDashboard({ studentAccountId, onLogout }) {
   const allPast = profiles
     .flatMap(s => parseLessons(s).filter(l => parseLocalDate(l.date) < today))
     .sort((a, b) => parseLocalDate(b.date) - parseLocalDate(a.date));
+
+  const totalSessions = sessionHistory.reduce((sum, g) => sum + (g.sessions?.length || 0), 0);
+
+  const renderLessonCard = (l, i, studentProfile) => {
+    const isToday = parseLocalDate(l.date).toDateString() === today.toDateString();
+    const hasLive = isToday && liveSession && l.tutorId === liveSession.tutorId;
+    const mats = studentProfile ? getMaterials(studentProfile, l.date) : [];
+    return (
+      <div key={i} className={`sd-lesson-card${isToday ? ' sd-today' : ''}`}>
+        <div className="sd-lesson-meta">
+          <span className="sd-lesson-date">{formatDate(l.date)}</span>
+          {l.time && <span className="sd-lesson-time">{l.time}</span>}
+          {l.tutorName && <span className="sd-lesson-tutor">{l.tutorName}</span>}
+        </div>
+        {l.note && <p className="sd-lesson-note">{l.note}</p>}
+        {mats.length > 0 && (
+          <ul className="sd-mats">
+            {mats.map((m, j) => (
+              <li key={j}><a href={m.url} target="_blank" rel="noopener noreferrer" download>📄 {m.name}</a></li>
+            ))}
+          </ul>
+        )}
+        {hasLive && (
+          <a href={`/live/student/${liveSession.sessionId}`} className="btn btn-primary sd-join-btn">
+            Подключиться к уроку
+          </a>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="sd-container">
@@ -148,30 +175,19 @@ function StudentDashboard({ studentAccountId, onLogout }) {
           </div>
 
           <nav className="sd-nav-tabs">
-            <button
-              className={`sd-tab${activeTab === 'home' ? ' sd-tab--active' : ''}`}
-              onClick={() => setActiveTab('home')}
-            >
-              Кабинет
-            </button>
-            <button
-              className={`sd-tab${activeTab === 'schedule' ? ' sd-tab--active' : ''}`}
-              onClick={() => setActiveTab('schedule')}
-            >
-              Расписание
-            </button>
-            <button
-              className={`sd-tab${activeTab === 'history' ? ' sd-tab--active' : ''}`}
-              onClick={() => setActiveTab('history')}
-            >
-              Мои занятия
-            </button>
-            <button
-              className={`sd-tab${activeTab === 'progress' ? ' sd-tab--active' : ''}`}
-              onClick={() => setActiveTab('progress')}
-            >
-              Прогресс
-            </button>
+            {[
+              { key: 'home', label: 'Кабинет' },
+              { key: 'schedule', label: 'Расписание' },
+              { key: 'progress', label: 'Прогресс' },
+            ].map(t => (
+              <button
+                key={t.key}
+                className={`sd-tab${activeTab === t.key ? ' sd-tab--active' : ''}`}
+                onClick={() => setActiveTab(t.key)}
+              >
+                {t.label}
+              </button>
+            ))}
           </nav>
 
           <div className="sd-nav-actions">
@@ -202,7 +218,6 @@ function StudentDashboard({ studentAccountId, onLogout }) {
         </div>
       </header>
 
-      {/* Live session notification banner */}
       {liveSession && (
         <div className="sd-live-banner">
           <span className="sd-live-dot" />
@@ -220,226 +235,106 @@ function StudentDashboard({ studentAccountId, onLogout }) {
         {loading ? (
           <div className="sd-loading">Загрузка...</div>
         ) : activeTab === 'home' ? (
+          /* ── Home tab ── */
           <>
-            <div className="sd-greeting">
-              <h1>Привет{displayName ? `, ${displayName}` : ''}!</h1>
-              {allUpcoming.length > 0 && (
-                <p className="sd-greeting-sub">
-                  {allUpcoming.length === 1 ? '1 предстоящий урок'
-                    : allUpcoming.length < 5 ? `${allUpcoming.length} предстоящих урока`
-                    : `${allUpcoming.length} предстоящих уроков`}
-                </p>
-              )}
+            {/* Account card */}
+            <div className="sd-account-card">
+              <div className="sd-avatar-placeholder sd-avatar-lg">
+                {initials || '?'}
+              </div>
+              <div className="sd-account-info">
+                <p className="sd-profile-name">{displayName || 'Студент'}</p>
+                {email && <p className="sd-profile-email">{email}</p>}
+              </div>
             </div>
 
-            {profiles.length === 0 && (
+            {/* Stats strip */}
+            <div className="sd-stats">
+              <div className="sd-stat">
+                <span>{allUpcoming.length}</span>
+                предстоящих
+              </div>
+              <div className="sd-stat">
+                <span>{profiles.length}</span>
+                {profiles.length === 1 ? 'репетитор' : profiles.length < 5 ? 'репетитора' : 'репетиторов'}
+              </div>
+              <div className="sd-stat">
+                <span>{totalSessions}</span>
+                проведено
+              </div>
+            </div>
+
+            {profiles.length === 0 ? (
               <div className="sd-link-section">
                 <h2 className="sd-section-title">Нет активных занятий</h2>
                 <p className="sd-link-hint">
                   Попросите репетитора прислать вам ссылку-приглашение, чтобы появиться здесь.
                 </p>
               </div>
-            )}
-
-            {profiles.map(student => {
-              const lessons = parseLessons(student);
-              const upcoming = lessons
-                .filter(l => parseLocalDate(l.date) >= today)
-                .sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
-              const past = lessons
-                .filter(l => parseLocalDate(l.date) < today)
-                .sort((a, b) => parseLocalDate(b.date) - parseLocalDate(a.date));
-              const allMats = (student.materialUrls || []).map((url, i) => ({
-                url: url.startsWith('/api/') ? `${API_BASE}${url}` : url,
-                name: decodeURIComponent(url.split('/').pop() || `Материал ${i + 1}`),
-              }));
-
-              return (
-                <div key={student.id} className="sd-tutor-block">
-                  <div className="sd-profile-card">
-                    {getPhotoUrl(student.photoUrl) ? (
-                      <img src={getPhotoUrl(student.photoUrl)} alt="" className="sd-avatar" />
-                    ) : (
-                      <div className="sd-avatar-placeholder">
-                        {student.firstName?.charAt(0)}{student.lastName?.charAt(0)}
-                      </div>
-                    )}
-                    <div>
-                      <p className="sd-profile-name">{student.firstName} {student.lastName}</p>
-                      {student.age && <p className="sd-profile-age">{student.age} лет</p>}
-                      {student.tutorName && (
-                        <p className="sd-tutor-name">Репетитор: {student.tutorName}</p>
-                      )}
-                      {student.interests?.length > 0 && (
-                        <div className="sd-interests">
-                          {student.interests.map((tag, i) => (
-                            <span key={i} className="sv-interest-tag">{tag}</span>
-                          ))}
-                        </div>
+            ) : (
+              <>
+                {/* Nearest upcoming lessons (max 5) */}
+                <section className="sd-section">
+                  <h2 className="sd-section-title">Ближайшие занятия</h2>
+                  {allUpcoming.length === 0 ? (
+                    <p className="sd-empty">Нет запланированных занятий</p>
+                  ) : (
+                    <div className="sd-lessons">
+                      {allUpcoming.slice(0, 5).map((l, i) => {
+                        const studentProfile = profiles.find(p => p.id === l.studentId);
+                        return renderLessonCard(l, i, studentProfile);
+                      })}
+                      {allUpcoming.length > 5 && (
+                        <button className="sd-show-more" onClick={() => setActiveTab('schedule')}>
+                          Ещё {allUpcoming.length - 5} занятий → Расписание
+                        </button>
                       )}
                     </div>
-                  </div>
-
-                  <section className="sd-section">
-                    <h2 className="sd-section-title">Предстоящие занятия</h2>
-                    {upcoming.length === 0 ? (
-                      <p className="sd-empty">Нет запланированных занятий</p>
-                    ) : (
-                      <div className="sd-lessons">
-                        {upcoming.map((l, i) => {
-                          const mats = getMaterials(student, l.date);
-                          const isToday = parseLocalDate(l.date).toDateString() === today.toDateString();
-                          const hasLive = isToday && liveSession && student.tutorId === liveSession.tutorId;
-                          return (
-                            <div key={i} className={`sd-lesson-card${isToday ? ' sd-today' : ''}`}>
-                              <div className="sd-lesson-meta">
-                                <span className="sd-lesson-date">{formatDate(l.date)}</span>
-                                {l.time && <span className="sd-lesson-time">{l.time}</span>}
-                              </div>
-                              {l.note && <p className="sd-lesson-note">{l.note}</p>}
-                              {mats.length > 0 && (
-                                <ul className="sd-mats">
-                                  {mats.map((m, j) => (
-                                    <li key={j}><a href={m.url} target="_blank" rel="noopener noreferrer" download>📄 {m.name}</a></li>
-                                  ))}
-                                </ul>
-                              )}
-                              {hasLive && (
-                                <a href={`/live/student/${liveSession.sessionId}`} className="btn btn-primary sd-join-btn">
-                                  Подключиться к уроку
-                                </a>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </section>
-
-                  {allMats.length > 0 && (
-                    <section className="sd-section">
-                      <h2 className="sd-section-title">Материалы</h2>
-                      <ul className="sd-mats">
-                        {allMats.map((m, i) => (
-                          <li key={i}><a href={m.url} target="_blank" rel="noopener noreferrer" download>📄 {m.name}</a></li>
-                        ))}
-                      </ul>
-                    </section>
                   )}
+                </section>
 
-                  {past.length > 0 && (
-                    <section className="sd-section">
-                      <h2 className="sd-section-title">История занятий</h2>
-                      <div className="sd-lessons sd-past">
-                        {past.map((l, i) => {
-                          const mats = getMaterials(student, l.date);
-                          return (
-                            <div key={i} className="sd-lesson-card sd-past-card">
-                              <div className="sd-lesson-meta">
-                                <span className="sd-lesson-date">{formatDate(l.date)}</span>
-                                {l.time && <span className="sd-lesson-time">{l.time}</span>}
-                              </div>
-                              {l.note && <p className="sd-lesson-note">{l.note}</p>}
-                              {mats.length > 0 && (
-                                <ul className="sd-mats">
-                                  {mats.map((m, j) => (
-                                    <li key={j}><a href={m.url} target="_blank" rel="noopener noreferrer" download>📄 {m.name}</a></li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  )}
-                </div>
-              );
-            })}
-          </>
-        ) : (
-          /* ── History tab ── */
-          activeTab === 'history' ? (
-          <div className="sd-schedule">
-            <div className="sd-greeting">
-              <h1>Мои занятия</h1>
-              <p className="sd-greeting-sub">История всех проведённых уроков</p>
-            </div>
-            {sessionHistory.length === 0 ? (
-              <div className="sd-link-section">
-                <p className="sd-link-hint">Нет завершённых уроков. После первого урока здесь появится история.</p>
-              </div>
-            ) : (
-              sessionHistory.map(group => (
-                <div key={group.studentId} className="sd-tutor-block">
-                  <h2 className="sd-section-title">
-                    {group.studentFirstName} {group.studentLastName}
-                    {group.tutorName && <span className="sd-tutor-name"> — {group.tutorName}</span>}
-                  </h2>
-                  <div className="sd-lessons">
-                    {(group.sessions || []).map(sess => (
-                      <SessionHistoryItem key={sess.snapshotId} session={sess} token={token} />
-                    ))}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        ) : activeTab === 'progress' ? (
-          <div className="sd-schedule">
-            <div className="sd-greeting">
-              <h1>Прогресс</h1>
-              <p className="sd-greeting-sub">Заметки репетитора о вашем обучении</p>
-            </div>
-            {profiles.length === 0 ? (
-              <div className="sd-link-section">
-                <p className="sd-link-hint">Нет данных о прогрессе.</p>
-              </div>
-            ) : (
-              profiles.map(student => {
-                const notes = progressNotes[student.id] || [];
-                return (
-                  <div key={student.id} className="sd-tutor-block">
-                    <h2 className="sd-section-title">
-                      {student.firstName} {student.lastName}
-                      {student.tutorName && <span className="sd-tutor-name"> — {student.tutorName}</span>}
-                    </h2>
-                    {notes.length === 0 ? (
-                      <p className="sd-empty">Нет заметок о прогрессе</p>
-                    ) : (
-                      <div className="sd-lessons">
-                        {notes.map(note => (
-                          <div key={note.id} className="sd-lesson-card">
-                            <div className="sd-lesson-meta">
-                              <span className="sd-lesson-date">
-                                {note.date ? new Date(note.date).toLocaleDateString('ru-RU') : ''}
-                              </span>
-                              <span className="sd-lesson-time">{'★'.repeat(note.rating)}{'☆'.repeat(5 - note.rating)}</span>
-                            </div>
-                            {note.noteText && <p className="sd-lesson-note">{note.noteText}</p>}
-                            {note.skillTags?.length > 0 && (
-                              <div className="sd-interests">
-                                {note.skillTags.map((tag, i) => (
-                                  <span key={i} className="sv-interest-tag">{tag}</span>
-                                ))}
-                              </div>
+                {/* My tutors */}
+                <section className="sd-section">
+                  <h2 className="sd-section-title">Мои репетиторы</h2>
+                  <div className="sd-tutors-list">
+                    {profiles.map(p => {
+                      const isLive = liveSession?.tutorId === p.tutorId;
+                      const upcoming = parseLessons(p).filter(l => parseLocalDate(l.date) >= today);
+                      return (
+                        <div key={p.id} className={`sd-tutor-chip${isLive ? ' sd-tutor-chip--live' : ''}`}>
+                          <div className="sd-tutor-chip-avatar">
+                            {p.tutorName?.charAt(0) || '?'}
+                          </div>
+                          <div className="sd-tutor-chip-info">
+                            <p className="sd-tutor-chip-name">{p.tutorName || 'Репетитор'}</p>
+                            {upcoming.length > 0 && (
+                              <p className="sd-tutor-chip-meta">
+                                Следующий урок: {formatDate(upcoming[0].date)}
+                                {upcoming[0].time ? `, ${upcoming[0].time}` : ''}
+                              </p>
                             )}
                           </div>
-                        ))}
-                      </div>
-                    )}
+                          {isLive && (
+                            <a href={`/live/student/${liveSession.sessionId}`} className="sd-tutor-live-badge">
+                              <span className="sd-live-dot" />
+                              Идёт урок
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })
+                </section>
+              </>
             )}
-          </div>
-        ) : (
-        /* ── Schedule tab ── */
+          </>
+        ) : activeTab === 'schedule' ? (
+          /* ── Schedule tab ── */
           <div className="sd-schedule">
             <div className="sd-greeting">
               <h1>Расписание занятий</h1>
               {allUpcoming.length > 0 && (
-                <p className="sd-greeting-sub">{allUpcoming.length} предстоящих занятий</p>
+                <p className="sd-greeting-sub">{allUpcoming.length} предстоящих</p>
               )}
             </div>
 
@@ -454,32 +349,8 @@ function StudentDashboard({ studentAccountId, onLogout }) {
                 <h2 className="sd-section-title">Предстоящие</h2>
                 <div className="sd-lessons">
                   {allUpcoming.map((l, i) => {
-                    const isToday = parseLocalDate(l.date).toDateString() === today.toDateString();
-                    const hasLive = isToday && liveSession && l.tutorId === liveSession.tutorId;
                     const studentProfile = profiles.find(p => p.id === l.studentId);
-                    const mats = studentProfile ? getMaterials(studentProfile, l.date) : [];
-                    return (
-                      <div key={i} className={`sd-lesson-card${isToday ? ' sd-today' : ''}`}>
-                        <div className="sd-lesson-meta">
-                          <span className="sd-lesson-date">{formatDate(l.date)}</span>
-                          {l.time && <span className="sd-lesson-time">{l.time}</span>}
-                          {l.tutorName && <span className="sd-lesson-tutor">{l.tutorName}</span>}
-                        </div>
-                        {l.note && <p className="sd-lesson-note">{l.note}</p>}
-                        {mats.length > 0 && (
-                          <ul className="sd-mats">
-                            {mats.map((m, j) => (
-                              <li key={j}><a href={m.url} target="_blank" rel="noopener noreferrer" download>📄 {m.name}</a></li>
-                            ))}
-                          </ul>
-                        )}
-                        {hasLive && (
-                          <a href={`/live/student/${liveSession.sessionId}`} className="btn btn-primary sd-join-btn">
-                            Подключиться к уроку
-                          </a>
-                        )}
-                      </div>
-                    );
+                    return renderLessonCard(l, i, studentProfile);
                   })}
                 </div>
               </section>
@@ -487,34 +358,118 @@ function StudentDashboard({ studentAccountId, onLogout }) {
 
             {allPast.length > 0 && (
               <section className="sd-section">
-                <h2 className="sd-section-title">Прошедшие</h2>
-                <div className="sd-lessons sd-past">
-                  {allPast.slice(0, 20).map((l, i) => {
-                    const studentProfile = profiles.find(p => p.id === l.studentId);
-                    const mats = studentProfile ? getMaterials(studentProfile, l.date) : [];
-                    return (
-                      <div key={i} className="sd-lesson-card sd-past-card">
-                        <div className="sd-lesson-meta">
-                          <span className="sd-lesson-date">{formatDate(l.date)}</span>
-                          {l.time && <span className="sd-lesson-time">{l.time}</span>}
-                          {l.tutorName && <span className="sd-lesson-tutor">{l.tutorName}</span>}
+                <button
+                  className="sd-past-toggle"
+                  onClick={() => setPastExpanded(v => !v)}
+                >
+                  {pastExpanded
+                    ? `Скрыть историю занятий ▲`
+                    : `Показать историю занятий (${allPast.length}) ▼`}
+                </button>
+                {pastExpanded && (
+                  <div className="sd-lessons sd-past" style={{ marginTop: '12px' }}>
+                    {allPast.slice(0, 30).map((l, i) => {
+                      const studentProfile = profiles.find(p => p.id === l.studentId);
+                      const isToday = parseLocalDate(l.date).toDateString() === today.toDateString();
+                      const mats = studentProfile ? getMaterials(studentProfile, l.date) : [];
+                      return (
+                        <div key={i} className={`sd-lesson-card sd-past-card${isToday ? ' sd-today' : ''}`}>
+                          <div className="sd-lesson-meta">
+                            <span className="sd-lesson-date">{formatDate(l.date)}</span>
+                            {l.time && <span className="sd-lesson-time">{l.time}</span>}
+                            {l.tutorName && <span className="sd-lesson-tutor">{l.tutorName}</span>}
+                          </div>
+                          {l.note && <p className="sd-lesson-note">{l.note}</p>}
+                          {mats.length > 0 && (
+                            <ul className="sd-mats">
+                              {mats.map((m, j) => (
+                                <li key={j}><a href={m.url} target="_blank" rel="noopener noreferrer" download>📄 {m.name}</a></li>
+                              ))}
+                            </ul>
+                          )}
                         </div>
-                        {l.note && <p className="sd-lesson-note">{l.note}</p>}
-                        {mats.length > 0 && (
-                          <ul className="sd-mats">
-                            {mats.map((m, j) => (
-                              <li key={j}><a href={m.url} target="_blank" rel="noopener noreferrer" download>📄 {m.name}</a></li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </section>
             )}
           </div>
-        ))}
+        ) : (
+          /* ── Progress tab (merged: session history + tutor notes) ── */
+          <div className="sd-schedule">
+            <div className="sd-greeting">
+              <h1>Прогресс</h1>
+              <p className="sd-greeting-sub">Конспекты уроков и заметки репетитора</p>
+            </div>
+
+            {/* Session recaps */}
+            <section className="sd-section">
+              <h2 className="sd-subsection-title">Конспекты уроков</h2>
+              {sessionHistory.length === 0 ? (
+                <p className="sd-empty">После первого онлайн-урока здесь появится история.</p>
+              ) : (
+                sessionHistory.map(group => (
+                  <div key={group.studentId} className="sd-tutor-block">
+                    <p className="sd-tutor-block-label">
+                      {group.studentFirstName} {group.studentLastName}
+                      {group.tutorName && <span className="sd-tutor-name"> — {group.tutorName}</span>}
+                    </p>
+                    <div className="sd-lessons">
+                      {(group.sessions || []).map(sess => (
+                        <SessionHistoryItem key={sess.snapshotId} session={sess} token={token} />
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </section>
+
+            {/* Tutor progress notes */}
+            <section className="sd-section">
+              <h2 className="sd-subsection-title">Заметки репетитора</h2>
+              {profiles.length === 0 ? (
+                <p className="sd-empty">Нет данных о прогрессе.</p>
+              ) : (
+                profiles.map(student => {
+                  const notes = progressNotes[student.id] || [];
+                  return (
+                    <div key={student.id} className="sd-tutor-block">
+                      <p className="sd-tutor-block-label">
+                        {student.firstName} {student.lastName}
+                        {student.tutorName && <span className="sd-tutor-name"> — {student.tutorName}</span>}
+                      </p>
+                      {notes.length === 0 ? (
+                        <p className="sd-empty">Нет заметок</p>
+                      ) : (
+                        <div className="sd-lessons">
+                          {notes.map(note => (
+                            <div key={note.id} className="sd-lesson-card">
+                              <div className="sd-lesson-meta">
+                                <span className="sd-lesson-date">
+                                  {note.date ? new Date(note.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
+                                </span>
+                                <span className="sd-lesson-time">{'★'.repeat(note.rating)}{'☆'.repeat(5 - note.rating)}</span>
+                              </div>
+                              {note.noteText && <p className="sd-lesson-note">{note.noteText}</p>}
+                              {note.skillTags?.length > 0 && (
+                                <div className="sd-interests">
+                                  {note.skillTags.map((tag, i) => (
+                                    <span key={i} className="sv-interest-tag">{tag}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </section>
+          </div>
+        )}
       </div>
     </div>
   );
