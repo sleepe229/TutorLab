@@ -53,8 +53,8 @@ public class StaticPageController {
                 buildPersonSchema();
 
         String body =
-            "<nav style=\"background:#0D1117;border-bottom:1px solid #30363D;padding:0 24px;height:60px;display:flex;align-items:center;gap:10px;\">" +
-              "<a href=\"/tutors\" style=\"display:flex;align-items:center;gap:10px;text-decoration:none;\">" +
+                "<nav style=\"position:sticky;top:0;z-index:100;background:#0D1117;border-bottom:1px solid #30363D;padding:0 24px;height:60px;display:flex;align-items:center;gap:10px;\">" +
+              "<a href=\"/home\" style=\"display:flex;align-items:center;gap:10px;text-decoration:none;\">" +
                 "<div style=\"width:34px;height:34px;background:#5B73F5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;\">TL</div>" +
                 "<span style=\"font-size:17px;font-weight:700;color:#F0F6FC;\">TutorLab</span>" +
               "</a>" +
@@ -90,7 +90,7 @@ public class StaticPageController {
                 "Поддержка: <a href=\"mailto:support@tutorlab.ru\" style=\"color:#5B73F5;\">support@tutorlab.ru</a>" +
               "</p>" +
               "<p style=\"margin-top:8px;\">" +
-                "<a href=\"/tutors\" style=\"color:#5B73F5;font-size:16px;\">Найти репетитора →</a>" +
+                "<a href=\"/home\" style=\"color:#5B73F5;font-size:16px;\">Найти репетитора →</a>" +
               "</p>" +
             "</main>";
 
@@ -121,8 +121,8 @@ public class StaticPageController {
                 "<meta property=\"og:url\" content=\"https://tutorlab.onrender.com/privacy\">\n";
 
         String body =
-            "<nav style=\"background:#0D1117;border-bottom:1px solid #30363D;padding:0 24px;height:60px;display:flex;align-items:center;gap:10px;\">" +
-              "<a href=\"/tutors\" style=\"display:flex;align-items:center;gap:10px;text-decoration:none;\">" +
+            "<nav style=\"position:sticky;top:0;z-index:100;background:#0D1117;border-bottom:1px solid #30363D;padding:0 24px;height:60px;display:flex;align-items:center;gap:10px;\">" +
+              "<a href=\"/home\" style=\"display:flex;align-items:center;gap:10px;text-decoration:none;\">" +
                 "<div style=\"width:34px;height:34px;background:#5B73F5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;\">TL</div>" +
                 "<span style=\"font-size:17px;font-weight:700;color:#F0F6FC;\">TutorLab</span>" +
               "</a>" +
@@ -194,8 +194,8 @@ public class StaticPageController {
                 "<meta property=\"og:url\" content=\"https://tutorlab.onrender.com/terms\">\n";
 
         String body =
-            "<nav style=\"background:#0D1117;border-bottom:1px solid #30363D;padding:0 24px;height:60px;display:flex;align-items:center;gap:10px;\">" +
-              "<a href=\"/tutors\" style=\"display:flex;align-items:center;gap:10px;text-decoration:none;\">" +
+            "<nav style=\"position:sticky;top:0;z-index:100;background:#0D1117;border-bottom:1px solid #30363D;padding:0 24px;height:60px;display:flex;align-items:center;gap:10px;\">" +
+              "<a href=\"/home\" style=\"display:flex;align-items:center;gap:10px;text-decoration:none;\">" +
                 "<div style=\"width:34px;height:34px;background:#5B73F5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;\">TL</div>" +
                 "<span style=\"font-size:17px;font-weight:700;color:#F0F6FC;\">TutorLab</span>" +
               "</a>" +
