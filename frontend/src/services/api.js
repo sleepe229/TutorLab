@@ -23,6 +23,9 @@ api.interceptors.request.use((config) => {
 let isRefreshing = false;
 let failedQueue = [];
 
+let isStudentRefreshing = false;
+let studentFailedQueue = [];
+
 const processQueue = (error, token = null) => {
   failedQueue.forEach((prom) => {
     if (error) {
@@ -40,9 +43,56 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      // Student request (carries X-Student-Token) → try student token refresh
+      if (originalRequest.headers?.['X-Student-Token']) {
+        const studentRefreshToken = localStorage.getItem('studentRefreshToken');
+        if (!studentRefreshToken) {
+          ['studentAccountId', 'studentToken', 'studentRefreshToken', 'studentFirstName', 'studentLastName']
+            .forEach(k => localStorage.removeItem(k));
+          window.location.href = '/tutors';
+          return Promise.reject(error);
+        }
+
+        if (isStudentRefreshing) {
+          // Queue concurrent student requests until the token refresh completes
+          return new Promise((resolve, reject) => {
+            studentFailedQueue.push({ resolve, reject });
+          }).then((newToken) => {
+            originalRequest.headers['X-Student-Token'] = newToken;
+            return api(originalRequest);
+          }).catch((err) => Promise.reject(err));
+        }
+
+        isStudentRefreshing = true;
+
+        try {
+          const res = await axios.post(`${API_BASE_URL}/students/auth/refresh`, { refreshToken: studentRefreshToken });
+          const newToken = res.data.accessToken;
+          const newRefreshToken = res.data.refreshToken;
+          localStorage.setItem('studentToken', newToken);
+          if (newRefreshToken) localStorage.setItem('studentRefreshToken', newRefreshToken);
+          // Retry all queued student requests with the new token
+          studentFailedQueue.forEach(p => p.resolve(newToken));
+          studentFailedQueue = [];
+          originalRequest.headers['X-Student-Token'] = newToken;
+          return api(originalRequest);
+        } catch {
+          studentFailedQueue.forEach(p => p.reject(error));
+          studentFailedQueue = [];
+          ['studentAccountId', 'studentToken', 'studentRefreshToken', 'studentFirstName', 'studentLastName']
+            .forEach(k => localStorage.removeItem(k));
+          window.location.href = '/tutors';
+          return Promise.reject(error);
+        } finally {
+          isStudentRefreshing = false;
+        }
+      }
+
+      // Tutor request → try tutor token refresh
       const refreshToken = localStorage.getItem('refreshToken');
       if (!refreshToken) {
-        // No refresh token — force logout
         localStorage.removeItem('tutorId');
         localStorage.removeItem('sessionToken');
         window.location.href = '/home';
@@ -59,7 +109,6 @@ api.interceptors.response.use(
         }).catch((err) => Promise.reject(err));
       }
 
-      originalRequest._retry = true;
       isRefreshing = true;
 
       try {

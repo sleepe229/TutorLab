@@ -35,8 +35,8 @@ public class SecurityHeadersFilter implements Filter {
         // Control referrer information
         httpResponse.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 
-        // Restrict powerful browser features
-        httpResponse.setHeader("Permissions-Policy", "camera=(), microphone=(self), geolocation=()");
+        // Restrict powerful browser features — camera=(self) required for WebRTC video
+        httpResponse.setHeader("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()");
 
         // Content Security Policy
         httpResponse.setHeader("Content-Security-Policy",
@@ -45,7 +45,7 @@ public class SecurityHeadersFilter implements Filter {
                 "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
                 "font-src 'self' https://fonts.gstatic.com; " +
                 "img-src 'self' data: blob:; " +
-                "connect-src 'self' ws: wss: https:;");
+                "connect-src 'self' wss://tutorlab.onrender.com https://api.anthropic.com https://fonts.googleapis.com https://fonts.gstatic.com;");
 
         // HSTS: enforce HTTPS for 2 years (required on Render where nginx is not in the path)
         httpResponse.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");

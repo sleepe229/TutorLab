@@ -25,6 +25,7 @@ export default defineConfig({
     global: 'globalThis',
   },
   build: {
+    manifest: true,
     commonjsOptions: {
       include: [/simple-peer/, /node_modules/],
       transformMixedEsModules: true,
@@ -32,12 +33,12 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          // WebRTC + live lesson deps — only needed on /live/* routes
-          webrtc: ['simple-peer', 'events'],
-          // STOMP/SockJS — only needed in live lesson
+          // simple-peer only — only needed on /live/* routes (lazy-loaded)
+          webrtc: ['simple-peer'],
+          // STOMP/SockJS — only needed in StudentDashboard + live lesson (lazy-loaded)
           stomp: ['sockjs-client', 'stompjs'],
-          // React core — always needed, separate for better caching
-          vendor: ['react', 'react-dom', 'react-router-dom'],
+          // React core + shared Node polyfills — always needed
+          vendor: ['react', 'react-dom', 'react-router-dom', 'events'],
         },
       },
     },

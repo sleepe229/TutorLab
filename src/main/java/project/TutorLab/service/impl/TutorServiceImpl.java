@@ -16,6 +16,7 @@ import project.TutorLab.dto.TutorResponseDto;
 import project.TutorLab.dto.TutorUpdateDto;
 import project.TutorLab.model.Tutor;
 import project.TutorLab.repository.TutorRepository;
+import project.TutorLab.service.IndexNowService;
 import project.TutorLab.service.TutorService;
 
 import java.util.ArrayList;
@@ -40,6 +41,9 @@ public class TutorServiceImpl implements TutorService {
 
     @Autowired
     private JwtService jwtService;
+
+    @Autowired
+    private IndexNowService indexNowService;
 
     @Value("${app.jwt.refresh-ttl-days:30}")
     private long refreshTtlDays;
@@ -101,11 +105,18 @@ public class TutorServiceImpl implements TutorService {
         if (updateDto.getHourlyRate() != null) {
             tutor.setHourlyRate(updateDto.getHourlyRate());
         }
+        boolean wasPublic = tutor.isPublicProfile();
         if (updateDto.getIsPublicProfile() != null) {
             tutor.setPublicProfile(updateDto.getIsPublicProfile());
         }
 
         tutorRepository.save(tutor);
+
+        // Notify Bing/Yandex when a tutor first makes their profile public
+        if (!wasPublic && tutor.isPublicProfile()) {
+            indexNowService.submitUrl("https://tutorlab.onrender.com/tutors");
+        }
+
         return convertToResponseDto(tutor);
     }
 
