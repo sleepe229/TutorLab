@@ -62,6 +62,9 @@ public class StudentAccountServiceImpl implements StudentAccountService {
     public Map<String, Object> register(String email, String password,
                                          String firstName, String lastName,
                                          String linkedStudentId) {
+        if (password == null || password.length() < 8) {
+            throw new IllegalArgumentException("Password must be at least 8 characters");
+        }
         if (accountRepository.existsByEmail(email)) {
             throw new IllegalArgumentException("Email already registered");
         }

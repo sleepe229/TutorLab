@@ -16,7 +16,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/tutors")
-@CrossOrigin(origins = "*")
 public class TutorController {
 
     private final TutorService tutorService;
@@ -28,26 +27,26 @@ public class TutorController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<TutorResponseDto> registerTutor(@RequestBody TutorRegistrationDto registrationDto,
-                                                           HttpServletRequest request) {
+    public ResponseEntity<?> registerTutor(@RequestBody TutorRegistrationDto registrationDto,
+                                           HttpServletRequest request) {
         authRateLimiter.checkRegisterLimit(request);
         try {
             TutorResponseDto response = tutorService.registerTutor(registrationDto);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (org.springframework.web.server.ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode()).build();
+            return ResponseEntity.status(e.getStatusCode()).body(java.util.Map.of("error", e.getReason() != null ? e.getReason() : "Registration failed"));
         }
     }
 
     @PostMapping("/login")
-    public ResponseEntity<TutorResponseDto> loginTutor(@RequestBody TutorLoginDto loginDto,
-                                                        HttpServletRequest request) {
+    public ResponseEntity<?> loginTutor(@RequestBody TutorLoginDto loginDto,
+                                        HttpServletRequest request) {
         authRateLimiter.checkLoginLimit(request);
         try {
             TutorResponseDto response = tutorService.loginTutor(loginDto);
             return ResponseEntity.ok(response);
         } catch (org.springframework.web.server.ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode()).build();
+            return ResponseEntity.status(e.getStatusCode()).body(java.util.Map.of("error", e.getReason() != null ? e.getReason() : "Login failed"));
         }
     }
 
@@ -61,12 +60,18 @@ public class TutorController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<TutorResponseDto> updateTutor(@PathVariable String id, @RequestBody TutorUpdateDto updateDto) {
+    public ResponseEntity<?> updateTutor(@PathVariable String id,
+                                         @RequestBody TutorUpdateDto updateDto,
+                                         HttpServletRequest request) {
+        String authenticatedTutorId = (String) request.getAttribute("tutorId");
+        if (authenticatedTutorId == null || !authenticatedTutorId.equals(id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(java.util.Map.of("error", "Cannot modify another tutor's profile"));
+        }
         try {
             TutorResponseDto response = tutorService.updateTutor(id, updateDto);
             return ResponseEntity.ok(response);
         } catch (org.springframework.web.server.ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode()).build();
+            return ResponseEntity.status(e.getStatusCode()).body(java.util.Map.of("error", e.getReason() != null ? e.getReason() : "Update failed"));
         }
     }
 
