@@ -141,9 +141,13 @@ function AppContent() {
       <Routes>
         <Route
           path="/home"
-          element={tutorId ? (
-            <><NoIndexMeta /><Home tutorId={tutorId} onLogout={handleTutorLogout} /></>
-          ) : renderLanding()}
+          element={
+            tutorId ? (
+              <><NoIndexMeta /><Home tutorId={tutorId} onLogout={handleTutorLogout} /></>
+            ) : studentAccountId && !authRole ? (
+              <Navigate to="/me" replace />
+            ) : renderLanding()
+          }
         />
         <Route
           path="/settings"
@@ -255,7 +259,7 @@ function AppContent() {
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/about" element={<AboutPage />} />
 
-        <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route path="/" element={<Navigate to={studentAccountId ? '/me' : '/home'} replace />} />
       </Routes>
     </div>
   );
