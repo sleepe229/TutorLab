@@ -50,11 +50,12 @@ public class TutorsPageController {
         head.append(buildSchemaScript(tutors));
 
         StringBuilder body = new StringBuilder();
-        body.append("<nav style=\"background:#0D1117;border-bottom:1px solid #30363D;padding:0 24px;height:60px;display:flex;align-items:center;gap:10px;\">");
-        body.append("<a href=\"/tutors\" style=\"display:flex;align-items:center;gap:10px;text-decoration:none;\">");
+        body.append("<nav style=\"position:sticky;top:0;z-index:100;background:#0D1117;border-bottom:1px solid #30363D;padding:0 24px;height:60px;display:flex;align-items:center;gap:10px;\">");
+        body.append("<a href=\"/home\" style=\"display:flex;align-items:center;gap:10px;text-decoration:none;\">");
         body.append("<div style=\"width:34px;height:34px;background:#5B73F5;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:800;flex-shrink:0;\">TL</div>");
         body.append("<span style=\"font-size:17px;font-weight:700;color:#F0F6FC;\">TutorLab</span></a>");
         body.append("<span style=\"font-size:14px;color:#8B949E;margin-left:4px;\">Репетиторы</span>");
+        body.append("<a href=\"/home\" style=\"margin-left:auto;padding:8px 20px;border-radius:8px;background:#5B73F5;color:#fff;text-decoration:none;font-size:14px;font-weight:600;\">Войти</a>");
         body.append("</nav>");
         body.append("<main style=\"max-width:1100px;margin:0 auto;padding:40px 24px 60px;\">");
         body.append("<h1 style=\"font-size:32px;font-weight:700;color:#F0F6FC;margin:0 0 8px;\">Найдите своего репетитора</h1>");
@@ -117,6 +118,16 @@ public class TutorsPageController {
             card.append("<p style=\"font-size:13px;color:#8B949E;line-height:1.5;margin:0 0 12px;\">")
                 .append(escapeHtml(about)).append("</p>");
         }
+
+        // Actions
+        card.append("<div style=\"display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:auto;\">");
+        card.append("<a href=\"/home\" style=\"padding:8px 20px;border-radius:8px;background:#5B73F5;color:#fff;text-decoration:none;font-size:14px;font-weight:600;\">Написать</a>");
+        if (t.getHourlyRate() != null) {
+            card.append("<span style=\"font-size:14px;font-weight:600;color:#8B949E;\">от ").append(t.getHourlyRate()).append(" ₽</span>");
+        } else {
+            card.append("<span style=\"font-size:13px;font-style:italic;color:#8B949E;\">Цена договорная</span>");
+        }
+        card.append("</div>");
 
         card.append("</article>");
         return card.toString();

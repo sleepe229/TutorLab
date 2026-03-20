@@ -1,5 +1,18 @@
 import React from 'react';
 
+const RELOAD_KEY = 'chunkReloadedAt';
+const RELOAD_COOLDOWN_MS = 10_000; // don't reload more than once per 10 s
+
+function isChunkLoadError(error) {
+  const msg = error?.message || '';
+  return (
+    msg.includes('Failed to fetch dynamically imported module') ||
+    msg.includes('Importing a module script failed') ||
+    msg.includes('Loading chunk') ||
+    msg.includes('dynamically imported module')
+  );
+}
+
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -12,6 +25,15 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     console.error('ErrorBoundary caught:', error, info);
+
+    // Auto-reload once when a stale chunk URL 404s after a new deployment
+    if (isChunkLoadError(error)) {
+      const last = Number(sessionStorage.getItem(RELOAD_KEY) || 0);
+      if (Date.now() - last > RELOAD_COOLDOWN_MS) {
+        sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+        window.location.reload();
+      }
+    }
   }
 
   render() {
