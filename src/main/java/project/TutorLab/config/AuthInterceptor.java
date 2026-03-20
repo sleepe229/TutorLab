@@ -36,6 +36,13 @@ public class AuthInterceptor implements HandlerInterceptor {
             return false;
         }
 
+        // Reject student tokens on tutor-protected routes
+        if (!"TUTOR".equals(jwtService.extractRole(token))) {
+            log.warn("Rejected non-TUTOR token on protected route {} from {}", request.getRequestURI(), request.getRemoteAddr());
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Tutor role required");
+            return false;
+        }
+
         String tutorId = jwtService.extractTutorId(token);
         request.setAttribute("tutorId", tutorId);
         return true;

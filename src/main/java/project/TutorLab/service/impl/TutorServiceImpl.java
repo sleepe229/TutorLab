@@ -50,6 +50,9 @@ public class TutorServiceImpl implements TutorService {
 
     @Override
     public TutorResponseDto registerTutor(TutorRegistrationDto registrationDto) {
+        if (registrationDto.getPassword() == null || registrationDto.getPassword().length() < 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Пароль должен содержать не менее 8 символов");
+        }
         if (tutorRepository.existsByLogin(registrationDto.getLogin())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Пользователь с таким логином уже существует");
         }
@@ -142,7 +145,13 @@ public class TutorServiceImpl implements TutorService {
     @Override
     public List<TutorResponseDto> getPublicTutors() {
         return tutorRepository.findAllPublic().stream()
-                .map(this::convertToResponseDto)
+                .map(t -> {
+                    TutorResponseDto dto = convertToResponseDto(t);
+                    // Strip private fields before exposing publicly
+                    dto.setLogin(null);
+                    dto.setStudentIds(null);
+                    return dto;
+                })
                 .collect(Collectors.toList());
     }
 

@@ -11,13 +11,13 @@ import project.TutorLab.dto.StudentResponseDto;
 import project.TutorLab.model.ProgressNote;
 import project.TutorLab.service.StudentService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/students")
-@CrossOrigin(origins = "*")
 public class StudentController {
 
     private final StudentService studentService;
@@ -28,10 +28,26 @@ public class StudentController {
         this.jwtService = jwtService;
     }
 
+    /** Verify the authenticated tutor owns the given student. Returns 404 if student not found, 403 if not owned. */
+    private ResponseEntity<Void> checkStudentOwnership(String studentId, HttpServletRequest request) {
+        String authenticatedTutorId = (String) request.getAttribute("tutorId");
+        StudentResponseDto student = studentService.getStudentById(studentId);
+        if (student == null) return ResponseEntity.notFound().build();
+        if (!authenticatedTutorId.equals(student.getTutorId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return null; // OK
+    }
+
     @PostMapping("/tutor/{tutorId}")
     public ResponseEntity<StudentResponseDto> createStudent(
             @PathVariable String tutorId,
-            @RequestBody StudentCreateDto createDto) {
+            @RequestBody StudentCreateDto createDto,
+            HttpServletRequest request) {
+        String authenticatedTutorId = (String) request.getAttribute("tutorId");
+        if (!authenticatedTutorId.equals(tutorId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         try {
             StudentResponseDto response = studentService.createStudent(tutorId, createDto);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -41,16 +57,24 @@ public class StudentController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<StudentResponseDto> getStudent(@PathVariable String id) {
+    public ResponseEntity<StudentResponseDto> getStudent(@PathVariable String id,
+                                                         HttpServletRequest request) {
+        String authenticatedTutorId = (String) request.getAttribute("tutorId");
         StudentResponseDto student = studentService.getStudentById(id);
-        if (student == null) {
-            return ResponseEntity.notFound().build();
+        if (student == null) return ResponseEntity.notFound().build();
+        if (!authenticatedTutorId.equals(student.getTutorId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(student);
     }
 
     @GetMapping("/tutor/{tutorId}")
-    public ResponseEntity<List<StudentCardDto>> getAllStudentsByTutor(@PathVariable String tutorId) {
+    public ResponseEntity<List<StudentCardDto>> getAllStudentsByTutor(@PathVariable String tutorId,
+                                                                      HttpServletRequest request) {
+        String authenticatedTutorId = (String) request.getAttribute("tutorId");
+        if (!authenticatedTutorId.equals(tutorId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         List<StudentCardDto> students = studentService.getAllStudentsByTutorId(tutorId);
         return ResponseEntity.ok(students);
     }
@@ -58,7 +82,12 @@ public class StudentController {
     @PostMapping("/{id}/materials")
     public ResponseEntity<StudentResponseDto> addMaterial(
             @PathVariable String id,
-            @RequestBody Map<String, String> request) {
+            @RequestBody Map<String, String> request,
+            HttpServletRequest servletRequest) {
+        ResponseEntity<Void> ownershipCheck = checkStudentOwnership(id, servletRequest);
+        if (ownershipCheck != null) return ownershipCheck.hasBody()
+                ? ResponseEntity.status(ownershipCheck.getStatusCode()).build()
+                : ResponseEntity.status(ownershipCheck.getStatusCode()).build();
         try {
             String materialUrl = request.get("materialUrl");
             if (materialUrl == null || materialUrl.isEmpty()) {
@@ -74,7 +103,10 @@ public class StudentController {
     @PutMapping("/{id}/lessons")
     public ResponseEntity<StudentResponseDto> updateLessonDate(
             @PathVariable String id,
-            @RequestBody Map<String, String> request) {
+            @RequestBody Map<String, String> request,
+            HttpServletRequest servletRequest) {
+        ResponseEntity<Void> ownershipCheck = checkStudentOwnership(id, servletRequest);
+        if (ownershipCheck != null) return ResponseEntity.status(ownershipCheck.getStatusCode()).build();
         try {
             String oldLessonDate = request.get("oldLessonDate");
             String newLessonDate = request.get("newLessonDate");
@@ -91,7 +123,10 @@ public class StudentController {
     @PostMapping("/{id}/lessons")
     public ResponseEntity<StudentResponseDto> addLessonDate(
             @PathVariable String id,
-            @RequestBody Map<String, String> request) {
+            @RequestBody Map<String, String> request,
+            HttpServletRequest servletRequest) {
+        ResponseEntity<Void> ownershipCheck = checkStudentOwnership(id, servletRequest);
+        if (ownershipCheck != null) return ResponseEntity.status(ownershipCheck.getStatusCode()).build();
         try {
             String lessonDate = request.get("lessonDate");
             if (lessonDate == null || lessonDate.isEmpty()) {
@@ -105,7 +140,10 @@ public class StudentController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteStudent(@PathVariable String id) {
+    public ResponseEntity<Void> deleteStudent(@PathVariable String id,
+                                              HttpServletRequest request) {
+        ResponseEntity<Void> ownershipCheck = checkStudentOwnership(id, request);
+        if (ownershipCheck != null) return ResponseEntity.status(ownershipCheck.getStatusCode()).build();
         try {
             studentService.deleteStudent(id);
             return ResponseEntity.noContent().build();
@@ -125,7 +163,10 @@ public class StudentController {
     @PostMapping("/{id}/lesson-materials")
     public ResponseEntity<StudentResponseDto> addLessonMaterial(
             @PathVariable String id,
-            @RequestBody Map<String, String> request) {
+            @RequestBody Map<String, String> request,
+            HttpServletRequest servletRequest) {
+        ResponseEntity<Void> ownershipCheck = checkStudentOwnership(id, servletRequest);
+        if (ownershipCheck != null) return ResponseEntity.status(ownershipCheck.getStatusCode()).build();
         try {
             String lessonDate = request.get("lessonDate");
             String materialUrl = request.get("materialUrl");
@@ -142,12 +183,12 @@ public class StudentController {
     @PostMapping("/{id}/toggle-favorite")
     public ResponseEntity<Void> toggleFavoriteStudent(
             @PathVariable String id,
-            @RequestBody Map<String, String> request) {
+            HttpServletRequest request) {
+        // Use authenticated tutorId from JWT — do not trust body
+        String tutorId = (String) request.getAttribute("tutorId");
+        ResponseEntity<Void> ownershipCheck = checkStudentOwnership(id, request);
+        if (ownershipCheck != null) return ResponseEntity.status(ownershipCheck.getStatusCode()).build();
         try {
-            String tutorId = request.get("tutorId");
-            if (tutorId == null || tutorId.isEmpty()) {
-                return ResponseEntity.badRequest().build();
-            }
             studentService.toggleFavoriteStudent(tutorId, id);
             return ResponseEntity.ok().build();
         } catch (IllegalArgumentException e) {
@@ -158,7 +199,10 @@ public class StudentController {
     @PutMapping("/{id}/price")
     public ResponseEntity<StudentResponseDto> updatePrice(
             @PathVariable String id,
-            @RequestBody Map<String, Object> request) {
+            @RequestBody Map<String, Object> request,
+            HttpServletRequest servletRequest) {
+        ResponseEntity<Void> ownershipCheck = checkStudentOwnership(id, servletRequest);
+        if (ownershipCheck != null) return ResponseEntity.status(ownershipCheck.getStatusCode()).build();
         try {
             Integer price = request.get("pricePerLesson") != null
                     ? ((Number) request.get("pricePerLesson")).intValue()
@@ -188,6 +232,14 @@ public class StudentController {
         if (sessionToken == null || !jwtService.isTokenValid(sessionToken)
                 || !"TUTOR".equals(jwtService.extractRole(sessionToken))) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Verify the tutor owns this student
+        String authenticatedTutorId = jwtService.extractTutorId(sessionToken);
+        StudentResponseDto student = studentService.getStudentById(id);
+        if (student == null) return ResponseEntity.notFound().build();
+        if (!authenticatedTutorId.equals(student.getTutorId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         try {
@@ -232,7 +284,10 @@ public class StudentController {
     public ResponseEntity<Void> updatePaymentStatus(
             @PathVariable String id,
             @PathVariable String date,
-            @RequestBody Map<String, String> request) {
+            @RequestBody Map<String, String> request,
+            HttpServletRequest servletRequest) {
+        ResponseEntity<Void> ownershipCheck = checkStudentOwnership(id, servletRequest);
+        if (ownershipCheck != null) return ResponseEntity.status(ownershipCheck.getStatusCode()).build();
         try {
             String status = request.get("status");
             if (status == null || status.isEmpty()) {

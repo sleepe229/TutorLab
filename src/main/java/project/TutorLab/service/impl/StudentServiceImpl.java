@@ -296,7 +296,7 @@ public class StudentServiceImpl implements StudentService {
     public List<ProgressNote> getProgressNotes(String studentId) {
         Student student = studentRepository.findById(studentId);
         if (student == null) throw new IllegalArgumentException("Student not found: " + studentId);
-        List<ProgressNote> notes = student.getProgressNotes();
+        List<ProgressNote> notes = new ArrayList<>(student.getProgressNotes());
         notes.sort(Comparator.comparing(ProgressNote::getDate, Comparator.nullsLast(Comparator.reverseOrder())));
         return notes;
     }

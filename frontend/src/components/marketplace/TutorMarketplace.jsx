@@ -105,7 +105,8 @@ function TutorMarketplace({ studentAccountId }) {
         }
       }
       if (subjectFilter && !(t.subjects || []).includes(subjectFilter)) return false;
-      if (maxRate && t.hourlyRate != null && t.hourlyRate > parseInt(maxRate)) return false;
+      const maxRateNum = maxRate ? Number(maxRate) : NaN;
+      if (!isNaN(maxRateNum) && maxRateNum > 0 && t.hourlyRate != null && t.hourlyRate > maxRateNum) return false;
       return true;
     });
   }, [tutors, search, subjectFilter, maxRate]);

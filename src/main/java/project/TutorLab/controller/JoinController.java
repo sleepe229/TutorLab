@@ -24,7 +24,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/join")
-@CrossOrigin(origins = "*")
 public class JoinController {
 
     private static final Logger log = LoggerFactory.getLogger(JoinController.class);
@@ -52,6 +51,21 @@ public class JoinController {
         StudentAccount account = studentAccountService.getById(studentAccountId);
         if (account == null) {
             return ResponseEntity.status(404).body(Map.of("error", "Student account not found"));
+        }
+
+        // Prevent duplicate join: check if account already has a student profile linked to this tutor
+        if (account.getLinkedStudentIds() != null) {
+            boolean alreadyJoined = studentService.hasAnyStudentWithTutor(account.getLinkedStudentIds(), tutorId);
+            if (alreadyJoined) {
+                log.info("StudentAccount {} already joined tutor {}, skipping duplicate creation", studentAccountId, tutorId);
+                // Find and return the existing studentId
+                for (String sid : account.getLinkedStudentIds()) {
+                    project.TutorLab.dto.StudentResponseDto existing = studentService.getStudentById(sid);
+                    if (existing != null && tutorId.equals(existing.getTutorId())) {
+                        return ResponseEntity.ok(Map.of("studentId", sid));
+                    }
+                }
+            }
         }
 
         // Create a new tutor-owned Student record from the account details

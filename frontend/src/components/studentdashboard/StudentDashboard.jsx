@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { studentApi, studentAccountApi, liveApi, progressApi } from '../../services/api';
 import { connectToTutorUpdates } from '../../services/wsClient';
@@ -9,6 +10,7 @@ import ThemeToggle from '../ui/ThemeToggle';
 import './StudentDashboard.css';
 
 function StudentDashboard({ studentAccountId, onLogout }) {
+  const navigate = useNavigate();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('home'); // 'home' | 'schedule' | 'history' | 'progress'
@@ -173,11 +175,11 @@ function StudentDashboard({ studentAccountId, onLogout }) {
           </nav>
 
           <div className="sd-nav-actions">
-            <button className="nav-link nav-link-btn" onClick={() => window.location.href = '/tutors'}>Репетиторы</button>
+            <button className="nav-link nav-link-btn" onClick={() => navigate('/tutors')}>Репетиторы</button>
             <ThemeToggle />
             <button
               className="nav-icon-btn"
-              onClick={() => window.location.href = '/chat'}
+              onClick={() => navigate('/chat')}
               aria-label="Сообщения"
               title="Сообщения"
               style={{ position: 'relative' }}
