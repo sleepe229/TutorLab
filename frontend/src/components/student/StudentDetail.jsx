@@ -5,7 +5,7 @@ import { studentApi, progressApi } from '../../services/api';
 import { API_BASE } from '../../config.js';
 import Calendar from './Calendar';
 import LessonModal from './LessonModal';
-import ThemeToggle from '../ui/ThemeToggle';
+import TutorNav from '../ui/TutorNav';
 import { parseLocalDate } from '../../utils/date';
 import './StudentDetail.css';
 
@@ -37,6 +37,9 @@ function StudentDetail({ tutorId }) {
   const [pricePerLesson, setPricePerLesson] = useState('');
   const [trialLessonsCount, setTrialLessonsCount] = useState(1);
   const [savingPrice, setSavingPrice] = useState(false);
+  const [editingInfo, setEditingInfo] = useState(false);
+  const [editForm, setEditForm] = useState({ firstName: '', lastName: '', age: '', interests: '' });
+  const [savingInfo, setSavingInfo] = useState(false);
 
   useEffect(() => {
     loadStudent();
@@ -48,6 +51,12 @@ function StudentDetail({ tutorId }) {
       setStudent(response.data);
       setPricePerLesson(response.data.pricePerLesson != null ? String(response.data.pricePerLesson) : '');
       setTrialLessonsCount(response.data.trialLessonsCount ?? 1);
+      setEditForm({
+        firstName: response.data.firstName || '',
+        lastName: response.data.lastName || '',
+        age: response.data.age != null ? String(response.data.age) : '',
+        interests: (response.data.interests || []).join(', '),
+      });
 
       if (response.data.lessonDates) {
         const lessonsData = response.data.lessonDates.map(dateStr => {
@@ -139,6 +148,26 @@ function StudentDetail({ tutorId }) {
     }
   };
 
+  const handleSaveInfo = async (e) => {
+    e.preventDefault();
+    setSavingInfo(true);
+    try {
+      await studentApi.updateStudentInfo(id, {
+        firstName: editForm.firstName.trim(),
+        lastName: editForm.lastName.trim(),
+        age: editForm.age ? Number(editForm.age) : null,
+        interests: editForm.interests.split(',').map(s => s.trim()).filter(Boolean),
+      });
+      toast.success('Данные сохранены');
+      setEditingInfo(false);
+      await loadStudent();
+    } catch {
+      toast.error('Не удалось сохранить данные');
+    } finally {
+      setSavingInfo(false);
+    }
+  };
+
   const handleSetPaymentStatus = async (date, status) => {
     try {
       await studentApi.updateLessonPayment(id, date, status);
@@ -157,14 +186,7 @@ function StudentDetail({ tutorId }) {
   if (loading) {
     return (
       <div className="student-detail-container">
-        <header className="detail-nav" role="banner">
-          <div className="detail-nav-inner">
-            <button className="detail-nav-brand" onClick={() => navigate('/home')} aria-label="На главную">
-              <div className="brand-logo-mark">TL</div>
-              <span className="brand-name">TutorLab</span>
-            </button>
-          </div>
-        </header>
+        <TutorNav tutorId={tutorId} activePage="student" />
         <div className="container">
           <div className="loading">Загрузка...</div>
         </div>
@@ -175,14 +197,7 @@ function StudentDetail({ tutorId }) {
   if (!student) {
     return (
       <div className="student-detail-container">
-        <header className="detail-nav" role="banner">
-          <div className="detail-nav-inner">
-            <button className="detail-nav-brand" onClick={() => navigate('/home')} aria-label="На главную">
-              <div className="brand-logo-mark">TL</div>
-              <span className="brand-name">TutorLab</span>
-            </button>
-          </div>
-        </header>
+        <TutorNav tutorId={tutorId} activePage="student" />
         <div className="container">
           <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-secondary)' }}>
             Ученик не найден
@@ -200,79 +215,79 @@ function StudentDetail({ tutorId }) {
 
   return (
     <div className="student-detail-container">
-
-      {/* Top navigation */}
-      <header className="detail-nav" role="banner">
-        <div className="detail-nav-inner">
-          <button className="detail-nav-brand" onClick={() => navigate('/home')} aria-label="На главную">
-            <div className="brand-logo-mark">TL</div>
-            <span className="brand-name">TutorLab</span>
+      <TutorNav
+        tutorId={tutorId}
+        activePage="student"
+        breadcrumb={{ label: fullName }}
+        extraActions={student.studentAccountId ? (
+          <button
+            className="btn btn-secondary"
+            style={{ fontSize: '13px', padding: '6px 14px' }}
+            onClick={() => navigate('/chat')}
+          >
+            Написать
           </button>
-
-          <nav className="detail-nav-breadcrumb" aria-label="Навигация">
-            <button className="detail-nav-parent" onClick={() => navigate('/home')}>
-              Ученики
-            </button>
-            <span className="detail-nav-sep">›</span>
-            <span className="detail-nav-current">{fullName}</span>
-          </nav>
-
-          <div className="detail-nav-actions">
-            <button
-              className="btn btn-secondary"
-              style={{ fontSize: '13px', padding: '6px 14px' }}
-              onClick={() => {
-                const url = `${window.location.origin}/s/${id}`;
-                navigator.clipboard.writeText(url).then(() => {
-                  toast.success('Ссылка скопирована');
-                });
-              }}
-              title="Скопировать ссылку для ученика"
-            >
-              Поделиться
-            </button>
-            {student.studentAccountId && (
-              <button
-                className="btn btn-secondary"
-                style={{ fontSize: '13px', padding: '6px 14px' }}
-                onClick={() => navigate('/chat')}
-              >
-                Написать
-              </button>
-            )}
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+        ) : null}
+      />
 
       <div className="container">
 
         {/* Student main card */}
         <div className="student-main-card card">
-          <div className="student-main-content">
-            <div className="student-photo-section">
-              {photoUrl ? (
-                <img src={photoUrl} alt={fullName} className="student-photo" />
-              ) : (
-                <div className="student-photo-placeholder">
-                  <span>{student.firstName.charAt(0)}{student.lastName.charAt(0)}</span>
+          {editingInfo ? (
+            <form onSubmit={handleSaveInfo} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Имя</label>
+                  <input className="payment-input" value={editForm.firstName} onChange={e => setEditForm(f => ({ ...f, firstName: e.target.value }))} required />
                 </div>
-              )}
-            </div>
-            <div className="student-info-section">
-              <h1>{fullName}</h1>
-              <p className="student-age">Возраст: {student.age} лет</p>
-              {student.interests && student.interests.length > 0 ? (
-                <div className="interests-list">
-                  {student.interests.map((interest, index) => (
-                    <span key={index} className="interest-tag">{interest}</span>
-                  ))}
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Фамилия</label>
+                  <input className="payment-input" value={editForm.lastName} onChange={e => setEditForm(f => ({ ...f, lastName: e.target.value }))} />
                 </div>
-              ) : (
-                <p className="empty-text">Интересы не указаны</p>
-              )}
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Возраст</label>
+                <input className="payment-input" type="number" min={0} max={100} value={editForm.age} onChange={e => setEditForm(f => ({ ...f, age: e.target.value }))} style={{ width: 100 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Интересы (через запятую)</label>
+                <input className="payment-input" value={editForm.interests} onChange={e => setEditForm(f => ({ ...f, interests: e.target.value }))} placeholder="математика, физика..." style={{ width: '100%' }} />
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button type="submit" className="btn btn-primary" disabled={savingInfo}>{savingInfo ? 'Сохранение...' : 'Сохранить'}</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingInfo(false)}>Отмена</button>
+              </div>
+            </form>
+          ) : (
+            <div className="student-main-content">
+              <div className="student-photo-section">
+                {photoUrl ? (
+                  <img src={photoUrl} alt={fullName} className="student-photo" />
+                ) : (
+                  <div className="student-photo-placeholder">
+                    <span>{student.firstName.charAt(0)}{student.lastName.charAt(0)}</span>
+                  </div>
+                )}
+              </div>
+              <div className="student-info-section">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+                  <h1 style={{ margin: 0 }}>{fullName}</h1>
+                  <button className="btn btn-secondary" style={{ fontSize: '12px', padding: '4px 10px' }} onClick={() => setEditingInfo(true)}>Редактировать</button>
+                </div>
+                {student.age != null && <p className="student-age">Возраст: {student.age} лет</p>}
+                {student.interests && student.interests.length > 0 ? (
+                  <div className="interests-list">
+                    {student.interests.map((interest, index) => (
+                      <span key={index} className="interest-tag">{interest}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="empty-text">Интересы не указаны</p>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Payment settings */}
@@ -327,7 +342,7 @@ function StudentDetail({ tutorId }) {
                     <div key={lessonKey} className="payment-lesson-row">
                       <div className="payment-lesson-info">
                         <span className="payment-lesson-date">
-                          {new Date(l.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                          {parseLocalDate(l.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
                           {l.time && ` ${l.time}`}
                         </span>
                         <span

@@ -176,6 +176,7 @@ export const studentApi = {
     api.put(`/students/${id}/price`, { pricePerLesson, trialLessonsCount }),
   updateLessonPayment: (id, date, status) =>
     api.post(`/students/${id}/lessons/${date}/payment`, { status }),
+  updateStudentInfo: (id, data) => api.put(`/students/${id}/info`, data),
   uploadMaterial: async (file, tutorId, studentId) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -194,8 +195,14 @@ export const chatApi = {
   getTutorChats: (tutorId) => api.get(`/chats/tutor/${tutorId}`),
   getStudentChats: (studentAccountId, token) =>
     api.get(`/chats/student/${studentAccountId}`, { headers: { 'X-Student-Token': token } }),
-  getMessages: (chatId) => api.get(`/chats/${chatId}/messages`),
-  sendMessage: (chatId, payload) => api.post(`/chats/${chatId}/message`, payload),
+  getMessages: (chatId, token) =>
+    token
+      ? api.get(`/chats/${chatId}/messages`, { headers: { 'X-Student-Token': token } })
+      : api.get(`/chats/${chatId}/messages`),
+  sendMessage: (chatId, payload, token) =>
+    token
+      ? api.post(`/chats/${chatId}/message`, payload, { headers: { 'X-Student-Token': token } })
+      : api.post(`/chats/${chatId}/message`, payload),
   markReadTutor: (chatId) => api.post(`/chats/${chatId}/read/tutor`),
   markReadStudent: (chatId, token) =>
     api.post(`/chats/${chatId}/read/student`, {}, { headers: { 'X-Student-Token': token } }),
