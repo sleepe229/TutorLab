@@ -6,79 +6,91 @@
 .sd-brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .sd-logo { width: 34px; height: 34px; background: var(--accent-primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; font-weight: 800; }
 .sd-brand-name { font-size: 17px; font-weight: 700; color: var(--text-primary); }
-.sd-nav-title { font-size: 13px; color: var(--text-secondary); }
 .sd-nav-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .nav-link { font-size: 14px; color: var(--text-secondary); text-decoration: none; transition: color 0.15s; }
 .nav-link:hover { color: var(--text-primary); }
 .nav-link-btn { background: none; border: none; cursor: pointer; padding: 0; }
-
-/* Body */
-.sd-body { flex: 1; max-width: 800px; width: 100%; margin: 0 auto; padding: 32px 24px 60px; }
-.sd-loading { text-align: center; padding: 80px 0; color: var(--text-secondary); }
-
-/* Greeting */
-.sd-greeting { margin-bottom: 28px; }
-.sd-greeting h1 { font-size: 26px; font-weight: 700; color: var(--text-primary); margin: 0 0 4px; letter-spacing: -0.5px; }
-.sd-greeting-sub { font-size: 14px; color: var(--text-secondary); margin: 0; }
-
-/* Link section */
-.sd-link-section { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; margin-bottom: 28px; }
-.sd-link-hint { font-size: 14px; color: var(--text-secondary); margin: 6px 0 16px; }
-.sd-link-form { display: flex; gap: 10px; flex-wrap: wrap; }
-.sd-link-input { flex: 1; min-width: 200px; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--bg-page); color: var(--text-primary); font-size: 14px; }
-.sd-link-input:focus { outline: none; border-color: var(--accent-primary); }
-
-/* Profile card */
-.sd-profile-card { display: flex; align-items: center; gap: 16px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; margin-bottom: 28px; }
-.sd-avatar { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-.sd-avatar-placeholder { width: 60px; height: 60px; border-radius: 50%; background: var(--accent-primary); color: #fff; font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.sd-profile-name { font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0 0 4px; }
-.sd-profile-age { font-size: 13px; color: var(--text-secondary); margin: 0 0 4px; }
-.sd-tutor-name { font-size: 13px; color: var(--accent-primary); margin: 0 0 8px; font-weight: 500; }
-.sd-interests { display: flex; flex-wrap: wrap; gap: 6px; }
-
-/* Sections */
-.sd-section { margin-bottom: 28px; }
-.sd-section-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 12px; }
-.sd-empty { font-size: 14px; color: var(--text-secondary); padding: 12px 0; margin: 0; }
-
-/* Lessons */
-.sd-lessons { display: flex; flex-direction: column; gap: 10px; }
-.sd-lesson-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; }
-.sd-lesson-card.sd-today { border-color: var(--accent-primary); background: rgba(91,115,245,0.04); }
-.sd-past-card { opacity: 0.7; }
-.sd-lesson-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
-.sd-lesson-date { font-size: 14px; font-weight: 600; color: var(--text-primary); text-transform: capitalize; }
-.sd-lesson-time { font-size: 13px; color: var(--accent-primary); font-weight: 500; }
-.sd-lesson-note { font-size: 13px; color: var(--text-secondary); margin: 4px 0 8px; }
-
-/* Materials */
-.sd-mats { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 6px; }
-.sd-mats a { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--accent-primary); text-decoration: none; word-break: break-all; }
-.sd-mats a:hover { text-decoration: underline; }
-
-@media (max-width: 600px) {
-  .sd-body { padding: 20px 16px 48px; }
-  .sd-profile-card { flex-direction: column; align-items: flex-start; }
-}
-
-/* Separator between tutor profiles */
-.sd-tutor-block {
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 24px;
-  background: var(--bg-card);
-}
-.sd-tutor-block + .sd-tutor-block {
-  margin-top: 0;
-}
 
 /* Nav tabs */
 .sd-nav-tabs { display: flex; align-items: center; gap: 4px; }
 .sd-tab { background: none; border: none; cursor: pointer; padding: 6px 14px; border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--text-secondary); transition: all 0.15s; white-space: nowrap; }
 .sd-tab:hover { color: var(--text-primary); background: var(--bg-hover, rgba(0,0,0,0.04)); }
 .sd-tab--active { color: var(--accent-primary); background: rgba(91,115,245,0.1); }
+
+/* Body */
+.sd-body { flex: 1; max-width: 800px; width: 100%; margin: 0 auto; padding: 32px 24px 60px; }
+.sd-loading { text-align: center; padding: 80px 0; color: var(--text-secondary); }
+
+/* Greeting (schedule/progress headers) */
+.sd-greeting { margin-bottom: 28px; }
+.sd-greeting h1 { font-size: 26px; font-weight: 700; color: var(--text-primary); margin: 0 0 4px; letter-spacing: -0.5px; }
+.sd-greeting-sub { font-size: 14px; color: var(--text-secondary); margin: 0; }
+
+/* Account card (home tab) */
+.sd-account-card { display: flex; align-items: center; gap: 16px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px 24px; margin-bottom: 20px; }
+.sd-avatar-lg { width: 52px; height: 52px; border-radius: 50%; background: var(--accent-primary); color: #fff; font-size: 18px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.sd-account-info { min-width: 0; }
+.sd-profile-name { font-size: 18px; font-weight: 700; color: var(--text-primary); margin: 0 0 3px; }
+.sd-profile-email { font-size: 13px; color: var(--text-secondary); margin: 0; }
+
+/* Stats strip */
+.sd-stats { display: flex; gap: 12px; margin-bottom: 28px; }
+.sd-stat { flex: 1; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 16px 12px; text-align: center; }
+.sd-stat span { display: block; font-size: 24px; font-weight: 800; color: var(--text-primary); line-height: 1.1; margin-bottom: 4px; }
+.sd-stat { font-size: 12px; color: var(--text-secondary); }
+
+/* Link / empty section */
+.sd-link-section { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; margin-bottom: 28px; }
+.sd-link-hint { font-size: 14px; color: var(--text-secondary); margin: 6px 0 0; }
+
+/* Sections */
+.sd-section { margin-bottom: 28px; }
+.sd-section-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.07em; margin: 0 0 12px; }
+.sd-subsection-title { font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 0 0 14px; }
+.sd-empty { font-size: 14px; color: var(--text-secondary); padding: 12px 0; margin: 0; }
+
+/* Lessons list */
+.sd-lessons { display: flex; flex-direction: column; gap: 10px; }
+.sd-lesson-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 16px; }
+.sd-lesson-card.sd-today { border-color: var(--accent-primary); background: rgba(91,115,245,0.04); }
+.sd-past-card { opacity: 0.7; }
+.sd-lesson-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+.sd-lesson-date { font-size: 14px; font-weight: 600; color: var(--text-primary); text-transform: capitalize; }
+.sd-lesson-time { font-size: 13px; color: var(--accent-primary); font-weight: 500; }
+.sd-lesson-note { font-size: 13px; color: var(--text-secondary); margin: 4px 0 8px; }
+.sd-lesson-tutor { font-size: 12px; color: var(--accent-primary); font-weight: 500; margin-left: auto; background: rgba(91,115,245,0.1); padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+
+/* Show more button */
+.sd-show-more { width: 100%; padding: 10px; background: none; border: 1px dashed var(--border-color); border-radius: 10px; color: var(--text-secondary); font-size: 13px; cursor: pointer; transition: all 0.15s; }
+.sd-show-more:hover { border-color: var(--accent-primary); color: var(--accent-primary); background: rgba(91,115,245,0.04); }
+
+/* Past lessons toggle */
+.sd-past-toggle { width: 100%; padding: 10px 16px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-secondary); font-size: 13px; font-weight: 500; cursor: pointer; text-align: left; transition: all 0.15s; }
+.sd-past-toggle:hover { border-color: var(--text-secondary); color: var(--text-primary); }
+
+/* My tutors list */
+.sd-tutors-list { display: flex; flex-direction: column; gap: 10px; }
+.sd-tutor-chip { display: flex; align-items: center; gap: 14px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px 16px; transition: border-color 0.15s; }
+.sd-tutor-chip--live { border-color: var(--accent-primary); background: rgba(91,115,245,0.04); }
+.sd-tutor-chip-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-primary); color: #fff; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.sd-tutor-chip-info { min-width: 0; flex: 1; }
+.sd-tutor-chip-name { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 0 0 2px; }
+.sd-tutor-chip-meta { font-size: 12px; color: var(--text-secondary); margin: 0; }
+.sd-tutor-live-badge { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--accent-primary); text-decoration: none; white-space: nowrap; padding: 4px 10px; border: 1px solid rgba(91,115,245,0.3); border-radius: 20px; transition: background 0.15s; }
+.sd-tutor-live-badge:hover { background: rgba(91,115,245,0.1); }
+
+/* Tutor block (progress tab) */
+.sd-tutor-block { border: 1px solid var(--border-color); border-radius: 14px; padding: 18px 20px; margin-bottom: 16px; background: var(--bg-card); }
+.sd-tutor-block-label { font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0 0 14px; }
+.sd-tutor-name { font-size: 13px; color: var(--accent-primary); font-weight: 500; }
+
+/* Materials */
+.sd-mats { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 6px; }
+.sd-mats a { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--accent-primary); text-decoration: none; word-break: break-all; }
+.sd-mats a:hover { text-decoration: underline; }
+
+/* Interests/tags */
+.sd-interests { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 
 /* Live session banner */
 .sd-live-banner { display: flex; align-items: center; gap: 12px; padding: 12px 24px; background: rgba(91,115,245,0.08); border-bottom: 1px solid rgba(91,115,245,0.2); flex-wrap: wrap; }
@@ -89,7 +101,7 @@
 .sd-live-dismiss { background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 16px; padding: 4px 8px; border-radius: 6px; line-height: 1; }
 .sd-live-dismiss:hover { background: var(--bg-hover, rgba(0,0,0,0.06)); color: var(--text-primary); }
 
-/* Nav icon buttons (shared with Home) */
+/* Nav icon buttons */
 .nav-icon-btn { position: relative; background: none; border: 1px solid var(--border-color); border-radius: 8px; width: 36px; height: 36px; cursor: pointer; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
 .nav-icon-btn:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--text-secondary); }
 .nav-icon-btn.logout:hover { background: rgba(248,113,113,0.1); color: var(--color-error); border-color: rgba(248,113,113,0.3); }
@@ -98,6 +110,17 @@
 /* Join button inside lesson card */
 .sd-join-btn { margin-top: 12px; display: inline-block; font-size: 13px; padding: 8px 18px; text-decoration: none; }
 
-/* Tutor label in schedule tab */
-.sd-lesson-tutor { font-size: 12px; color: var(--accent-primary); font-weight: 500; margin-left: auto; }
+/* Mobile */
+@media (max-width: 600px) {
+  .sd-body { padding: 20px 16px 48px; }
+  .sd-stats { flex-wrap: wrap; }
+  .sd-stat { min-width: calc(50% - 6px); flex: none; }
+  .sd-tutor-chip { padding: 12px; }
+  .sd-lesson-tutor { margin-left: 0; }
+  .sd-account-card { padding: 16px; }
+}
 
+@media (max-width: 400px) {
+  .sd-tab { padding: 6px 10px; font-size: 13px; }
+  .sd-brand-name { display: none; }
+}
