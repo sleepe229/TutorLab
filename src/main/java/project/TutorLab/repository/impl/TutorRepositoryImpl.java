@@ -126,8 +126,14 @@ public class TutorRepositoryImpl implements TutorRepository {
         if (ids == null || ids.isEmpty()) return new ArrayList<>();
         List<Tutor> result = new ArrayList<>();
         for (Object idObj : ids) {
-            Tutor t = findById(idObj.toString());
-            if (t != null && t.isPublicProfile()) result.add(t);
+            String id = idObj.toString();
+            Tutor t = findById(id);
+            if (t != null && t.isPublicProfile()) {
+                result.add(t);
+            } else {
+                // Prune expired or opted-out tutor IDs from the index
+                redisTemplate.opsForSet().remove(TUTOR_PUBLIC_INDEX, id);
+            }
         }
         return result;
     }

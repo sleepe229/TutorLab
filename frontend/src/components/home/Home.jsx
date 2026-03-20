@@ -12,8 +12,7 @@ function Home({ tutorId, onLogout }) {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  const [search, setSearch] = useState('');
+const [search, setSearch] = useState('');
   const inviteBtnRef = useRef(null);
   const [tutorName, setTutorName] = useState('');
   const navigate = useNavigate();
@@ -292,16 +291,7 @@ function Home({ tutorId, onLogout }) {
         />
       )}
 
-      {showChat && isAuthenticated && (
-        <ChatPanel
-          role="TUTOR"
-          senderId={tutorId}
-          senderName={tutorName}
-          onClose={() => setShowChat(false)}
-        />
-      )}
-
-      <Onboarding enabled={isAuthenticated} />
+<Onboarding enabled={isAuthenticated} />
     </div>
   );
 }
