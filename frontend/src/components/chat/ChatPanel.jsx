@@ -60,7 +60,7 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
     setMessages([]);
 
     try {
-      const res = await chatApi.getMessages(chat.id);
+      const res = await chatApi.getMessages(chat.id, isStudent ? token : null);
       setMessages(res.data || []);
     } catch { /* silent */ }
 
@@ -111,7 +111,7 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
         senderName,
         text,
         type: 'TEXT',
-      });
+      }, isStudent ? token : null);
       // Optimistically add (WS echo will be deduped by id)
       setMessages(prev => prev.some(m => m.id === res.data.id) ? prev : [...prev, res.data]);
       setTimeout(() => inputRef.current?.focus(), 0);
@@ -137,7 +137,7 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
         text: `Приглашение присоединиться как ученик: ${studentName}`,
         type: 'INVITE',
         inviteStudentId: studentId,
-      });
+      }, isStudent ? token : null);
       setMessages(prev => [...prev, res.data]);
     } catch {
       toast.error('Не удалось отправить приглашение');

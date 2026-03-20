@@ -1,12 +1,12 @@
 .invite-popover {
   position: absolute;
   z-index: 900;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  background: var(--bg-secondary, #1a1f2e);
+  border: 1px solid var(--card-border, rgba(255,255,255,0.1));
   border-radius: 16px;
   padding: 0;
   width: 320px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.45);
   animation: popIn 0.15s ease-out;
 }
 
