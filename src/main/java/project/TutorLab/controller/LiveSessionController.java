@@ -41,7 +41,6 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/live")
-@CrossOrigin(origins = "*")
 public class LiveSessionController {
 
     private static final Logger log = LoggerFactory.getLogger(LiveSessionController.class);
@@ -139,7 +138,8 @@ public class LiveSessionController {
     @PostMapping("/sessions/{sessionId}/presentation")
     public ResponseEntity<Void> uploadPresentation(
             @PathVariable String sessionId,
-            @RequestParam("file") MultipartFile file) throws IOException {
+            @RequestParam("file") MultipartFile file,
+            jakarta.servlet.http.HttpServletRequest request) throws IOException {
 
         String contentType = file.getContentType();
         if (contentType == null || !contentType.equals("application/pdf")) {
@@ -149,6 +149,11 @@ public class LiveSessionController {
         LiveSessionState session = liveSessionService.getSession(sessionId);
         if (session == null) {
             return ResponseEntity.notFound().build();
+        }
+
+        String authenticatedTutorId = (String) request.getAttribute("tutorId");
+        if (authenticatedTutorId == null || !authenticatedTutorId.equals(session.getTutorId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
         byte[] pdfBytes = file.getBytes();
@@ -182,8 +187,16 @@ public class LiveSessionController {
     @PutMapping("/sessions/{sessionId}/slide")
     public ResponseEntity<Void> changeSlide(
             @PathVariable String sessionId,
-            @RequestParam int slideIndex
+            @RequestParam int slideIndex,
+            jakarta.servlet.http.HttpServletRequest request
     ) {
+        String authenticatedTutorId = (String) request.getAttribute("tutorId");
+        if (authenticatedTutorId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        LiveSessionState session = liveSessionService.getSession(sessionId);
+        if (session == null) return ResponseEntity.notFound().build();
+        if (!authenticatedTutorId.equals(session.getTutorId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         liveSessionService.updateSlide(sessionId, slideIndex);
         return ResponseEntity.ok().build();
     }
@@ -356,8 +369,16 @@ public class LiveSessionController {
     @PostMapping("/sessions/{sessionId}/clear-drawings")
     public ResponseEntity<Void> clearDrawings(
             @PathVariable String sessionId,
-            @RequestParam int slideIndex
+            @RequestParam int slideIndex,
+            jakarta.servlet.http.HttpServletRequest request
     ) {
+        String authenticatedTutorId = (String) request.getAttribute("tutorId");
+        if (authenticatedTutorId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        LiveSessionState session = liveSessionService.getSession(sessionId);
+        if (session == null) return ResponseEntity.notFound().build();
+        if (!authenticatedTutorId.equals(session.getTutorId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         liveSessionService.clearSlideDrawings(sessionId, slideIndex);
         return ResponseEntity.ok().build();
     }

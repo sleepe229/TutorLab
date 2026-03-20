@@ -37,14 +37,22 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "refreshToken is required");
         }
 
-        Object tutorId = redisTemplate.opsForValue().get("refresh:" + refreshToken);
+        String refreshKey = "refresh:" + refreshToken;
+        Object tutorId = redisTemplate.opsForValue().get(refreshKey);
         if (tutorId == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired refresh token");
         }
 
+        // Rotate refresh token: delete old, issue new
+        redisTemplate.delete(refreshKey);
+        String newRefreshToken = java.util.UUID.randomUUID().toString();
+        long refreshTtlDays = 30L;
+        redisTemplate.opsForValue().set("refresh:" + newRefreshToken, tutorId.toString(),
+                refreshTtlDays, java.util.concurrent.TimeUnit.DAYS);
+
         String newAccessToken = jwtService.generateAccessToken(tutorId.toString());
-        log.debug("Issued new access token for tutor={}", tutorId);
-        return ResponseEntity.ok(Map.of("accessToken", newAccessToken));
+        log.debug("Issued new access+refresh tokens for tutor={}", tutorId);
+        return ResponseEntity.ok(Map.of("accessToken", newAccessToken, "refreshToken", newRefreshToken));
     }
 
     /**

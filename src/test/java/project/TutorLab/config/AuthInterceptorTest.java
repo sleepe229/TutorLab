@@ -66,6 +66,7 @@ class AuthInterceptorTest {
         String token = "valid.jwt.token";
         when(request.getHeader("X-Session-Token")).thenReturn(token);
         when(jwtService.isTokenValid(token)).thenReturn(true);
+        when(jwtService.extractRole(token)).thenReturn("TUTOR");
         when(jwtService.extractTutorId(token)).thenReturn("tutor-123");
 
         boolean result = interceptor.preHandle(request, response, new Object());

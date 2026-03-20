@@ -68,14 +68,14 @@ class TutorControllerIntegrationTest {
         TutorRegistrationDto dto = new TutorRegistrationDto();
         dto.setFullName("First User");
         dto.setLogin(login);
-        dto.setPassword("pass123");
+        dto.setPassword("password123");
 
         restTemplate.postForEntity("/api/tutors/register", dto, TutorResponseDto.class);
 
         TutorRegistrationDto dto2 = new TutorRegistrationDto();
         dto2.setFullName("Second User");
         dto2.setLogin(login);
-        dto2.setPassword("pass456");
+        dto2.setPassword("password456");
 
         ResponseEntity<Map> response =
                 restTemplate.postForEntity("/api/tutors/register", dto2, Map.class);
@@ -134,7 +134,7 @@ class TutorControllerIntegrationTest {
         TutorRegistrationDto dto = new TutorRegistrationDto();
         dto.setFullName("Refresh Tester");
         dto.setLogin("refresh_" + System.currentTimeMillis());
-        dto.setPassword("pass123");
+        dto.setPassword("password123");
 
         ResponseEntity<TutorResponseDto> regResponse =
                 restTemplate.postForEntity("/api/tutors/register", dto, TutorResponseDto.class);
