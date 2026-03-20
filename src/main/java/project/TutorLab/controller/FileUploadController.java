@@ -230,51 +230,5 @@ public class FileUploadController {
         }
     }
 
-    @PostMapping("/tutors/upload-photo")
-    @CrossOrigin(origins = "*")
-    public ResponseEntity<Map<String, String>> uploadTutorPhoto(@RequestParam("file") MultipartFile file) {
-        Map<String, String> response = new HashMap<>();
-        
-        if (file.isEmpty()) {
-            response.put("error", "Файл не выбран");
-            return ResponseEntity.badRequest().body(response);
-        }
-
-        // Проверка типа файла
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            response.put("error", "Файл должен быть изображением");
-            return ResponseEntity.badRequest().body(response);
-        }
-
-        try {
-            // Создаем директорию, если её нет
-            Path uploadPath = Paths.get(uploadDir);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-
-            // Генерируем уникальное имя файла
-            String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            }
-            String filename = UUID.randomUUID().toString() + extension;
-
-            // Сохраняем файл
-            Path filePath = uploadPath.resolve(filename);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-            // Возвращаем относительный путь для использования в приложении
-            String photoUrl = "/api/students/photos/" + filename;
-            response.put("photoUrl", photoUrl);
-            
-            return ResponseEntity.ok(response);
-        } catch (IOException e) {
-            response.put("error", "Ошибка при сохранении файла: " + e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-        }
-    }
 }
 

@@ -37,6 +37,12 @@ public class ChatController {
         // Tutor path: AuthInterceptor already validated X-Session-Token and put tutorId in attribute
         String tutorId = (String) request.getAttribute("tutorId");
         if (tutorId != null) return tutorId;
+        // Tutor JWT in header (interceptor skipped for /api/chats/**)
+        String sessionToken = request.getHeader("X-Session-Token");
+        if (sessionToken != null && jwtService.isTokenValid(sessionToken)
+                && "TUTOR".equals(jwtService.extractRole(sessionToken))) {
+            return jwtService.extractTutorId(sessionToken);
+        }
         // Student path: validate X-Student-Token directly
         String studentToken = request.getHeader("X-Student-Token");
         if (studentToken != null && jwtService.isStudentToken(studentToken)) {
@@ -73,7 +79,7 @@ public class ChatController {
     @GetMapping("/tutor/{tutorId}")
     public ResponseEntity<List<Chat>> getChatsForTutor(@PathVariable String tutorId,
                                                        HttpServletRequest request) {
-        String authenticatedTutorId = (String) request.getAttribute("tutorId");
+        String authenticatedTutorId = resolveCallerId(request);
         if (!tutorId.equals(authenticatedTutorId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
@@ -129,7 +135,7 @@ public class ChatController {
     @PostMapping("/{chatId}/read/tutor")
     public ResponseEntity<Void> markReadByTutor(@PathVariable String chatId,
                                                 HttpServletRequest request) {
-        if (request.getAttribute("tutorId") == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (resolveCallerId(request) == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         chatService.markReadByTutor(chatId);
         return ResponseEntity.ok().build();
     }

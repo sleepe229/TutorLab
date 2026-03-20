@@ -152,7 +152,7 @@ function AppContent() {
         <Route
           path="/settings"
           element={tutorId ? (
-            <><NoIndexMeta /><Settings tutorId={tutorId} onBack={() => navigate('/home')} /></>
+            <><NoIndexMeta /><Settings tutorId={tutorId} onBack={() => navigate('/home')} onLogout={handleTutorLogout} /></>
           ) : <Navigate to="/home" replace />}
         />
         <Route

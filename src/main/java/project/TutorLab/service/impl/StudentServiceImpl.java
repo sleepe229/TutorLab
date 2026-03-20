@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import project.TutorLab.dto.StudentCardDto;
 import project.TutorLab.dto.StudentCreateDto;
 import project.TutorLab.dto.StudentResponseDto;
+import project.TutorLab.dto.StudentUpdateDto;
 import project.TutorLab.model.ProgressNote;
 import project.TutorLab.model.Student;
 import project.TutorLab.model.Tutor;
@@ -256,6 +257,18 @@ public class StudentServiceImpl implements StudentService {
         } else {
             student.getLessonDates().add(newLessonDate);
         }
+        studentRepository.save(student);
+        return convertToResponseDto(student);
+    }
+
+    @Override
+    public StudentResponseDto updateStudentInfo(String studentId, StudentUpdateDto dto) {
+        Student student = studentRepository.findById(studentId);
+        if (student == null) throw new IllegalArgumentException("Student not found: " + studentId);
+        if (dto.getFirstName() != null) student.setFirstName(dto.getFirstName());
+        if (dto.getLastName() != null) student.setLastName(dto.getLastName());
+        if (dto.getAge() != null) student.setAge(dto.getAge());
+        if (dto.getInterests() != null) student.setInterests(dto.getInterests());
         studentRepository.save(student);
         return convertToResponseDto(student);
     }
