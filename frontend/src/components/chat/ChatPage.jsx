@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import TutorNav from '../ui/TutorNav';
 import ChatPanel from './ChatPanel';
 import './ChatPage.css';
@@ -10,6 +10,8 @@ import './ChatPage.css';
  */
 function ChatPage({ role, senderId, senderName, token, onLogout, backPath = '/home' }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const openStudentAccountId = location.state?.openStudentAccountId || null;
 
   return (
     <div className="chat-page">
@@ -49,6 +51,7 @@ function ChatPage({ role, senderId, senderName, token, onLogout, backPath = '/ho
           senderName={senderName}
           token={token}
           inline
+          initialOpenStudentAccountId={openStudentAccountId}
         />
       </div>
     </div>

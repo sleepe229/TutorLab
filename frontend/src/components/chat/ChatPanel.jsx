@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
-import { chatApi } from '../../services/api';
+import { chatApi, studentAccountApi } from '../../services/api';
 import { API_BASE } from '../../config.js';
 import { connectChatWs } from '../../services/chatWsClient.js';
 import './ChatPanel.css';
@@ -15,13 +15,15 @@ import './ChatPanel.css';
  *   token: JWT (for student role only — tutor uses regular session token)
  *   onClose: () => void
  */
-function ChatPanel({ role, senderId, senderName, token, onClose, inline = false, initialChatId = null }) {
+function ChatPanel({ role, senderId, senderName, token, onClose, inline = false, initialChatId = null, initialOpenStudentAccountId = null }) {
   const [chats, setChats] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
   const wsRef = useRef(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -44,7 +46,13 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
       const sorted = (res.data || []).sort((a, b) => b.lastTimestamp - a.lastTimestamp);
       setChats(sorted);
       const targetId = preOpenId || initialChatId;
-      const target = targetId ? sorted.find(c => c.id === targetId) : sorted[0];
+      let target;
+      if (targetId) {
+        target = sorted.find(c => c.id === targetId);
+      } else if (initialOpenStudentAccountId) {
+        target = sorted.find(c => c.studentAccountId === initialOpenStudentAccountId);
+      }
+      if (!target) target = sorted[0];
       if (target && !activeChatRef.current) {
         openChat(target);
       }
@@ -141,6 +149,35 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
       setMessages(prev => [...prev, res.data]);
     } catch {
       toast.error('Не удалось отправить приглашение');
+    }
+  };
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeChat) return;
+    e.target.value = '';
+    setUploading(true);
+    try {
+      const result = await studentAccountApi.uploadChatFile(file);
+      const fileUrl = result.fileUrl ? (result.fileUrl.startsWith('/api/') ? `${API_BASE}${result.fileUrl}` : result.fileUrl) : '';
+      const fileName = result.fileName || file.name;
+      const res = await chatApi.sendMessage(activeChat.id, {
+        senderId,
+        senderRole: role,
+        senderName,
+        text: fileName,
+        type: 'FILE',
+        fileUrl,
+        fileName,
+      }, isStudent ? token : null);
+      setMessages(prev => prev.some(m => m.id === res.data.id) ? prev : [...prev, res.data]);
+      setChats(prev => prev.map(c =>
+        c.id === activeChat.id ? { ...c, lastMessage: `📎 ${fileName}`, lastTimestamp: Date.now() } : c
+      ).sort((a, b) => b.lastTimestamp - a.lastTimestamp));
+    } catch {
+      toast.error('Не удалось загрузить файл');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -263,6 +300,20 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
                           </div>
                           <span className="chat-msg__time">{formatTime(msg.timestamp)}</span>
                         </div>
+                      ) : msg.type === 'FILE' ? (
+                        <div className="chat-msg__bubble chat-msg__file">
+                          <a
+                            href={msg.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download={msg.fileName}
+                            className="chat-msg__file-link"
+                          >
+                            <span className="chat-msg__file-icon">📎</span>
+                            <span className="chat-msg__file-name">{msg.fileName || msg.text}</span>
+                          </a>
+                          <span className="chat-msg__time">{formatTime(msg.timestamp)}</span>
+                        </div>
                       ) : (
                         <div className="chat-msg__bubble">
                           <span className="chat-msg__text">{msg.text}</span>
@@ -281,10 +332,36 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   placeholder="Написать сообщение..."
-                  disabled={sending}
+                  disabled={sending || uploading}
                   autoComplete="off"
                 />
-                <button type="submit" className="chat-send-btn" disabled={!input.trim() || sending} aria-label="Отправить">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  style={{ display: 'none' }}
+                  onChange={handleFileSelect}
+                />
+                <button
+                  type="button"
+                  className="chat-attach-btn"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={sending || uploading}
+                  aria-label="Прикрепить файл"
+                  title="Прикрепить файл"
+                >
+                  {uploading ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" strokeDasharray="30 10" strokeLinecap="round">
+                        <animateTransform attributeName="transform" type="rotate" dur="1s" from="0 12 12" to="360 12 12" repeatCount="indefinite"/>
+                      </circle>
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                    </svg>
+                  )}
+                </button>
+                <button type="submit" className="chat-send-btn" disabled={!input.trim() || sending || uploading} aria-label="Отправить">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="22" y1="2" x2="11" y2="13"/>
                     <polygon points="22 2 15 22 11 13 2 9 22 2"/>

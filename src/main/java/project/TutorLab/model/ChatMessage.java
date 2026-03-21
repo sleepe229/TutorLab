@@ -9,6 +9,8 @@ public class ChatMessage {
     private String text;
     private String type;
     private String inviteStudentId;
+    private String fileUrl;
+    private String fileName;
     private long timestamp;
 
     public ChatMessage() {}
@@ -36,6 +38,12 @@ public class ChatMessage {
 
     public String getInviteStudentId() { return inviteStudentId; }
     public void setInviteStudentId(String inviteStudentId) { this.inviteStudentId = inviteStudentId; }
+
+    public String getFileUrl() { return fileUrl; }
+    public void setFileUrl(String fileUrl) { this.fileUrl = fileUrl; }
+
+    public String getFileName() { return fileName; }
+    public void setFileName(String fileName) { this.fileName = fileName; }
 
     public long getTimestamp() { return timestamp; }
     public void setTimestamp(long timestamp) { this.timestamp = timestamp; }

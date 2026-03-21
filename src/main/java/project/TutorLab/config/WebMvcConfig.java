@@ -30,6 +30,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/students/*/view",
                         "/api/students/photos/**",
                         "/api/students/materials/**",
+                        "/api/students/upload-photo",
+                        "/api/students/upload-material",
                         "/api/auth/refresh",
                         "/api/auth/logout",
                         "/api/students/auth/**",

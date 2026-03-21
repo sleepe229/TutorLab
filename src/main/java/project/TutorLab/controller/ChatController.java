@@ -120,6 +120,8 @@ public class ChatController {
         String text = body.get("text");
         String type = body.get("type");
         String inviteStudentId = body.get("inviteStudentId");
+        String fileUrl = body.get("fileUrl");
+        String fileName = body.get("fileName");
 
         if (senderRole == null || text == null) {
             return ResponseEntity.badRequest().build();
@@ -127,7 +129,7 @@ public class ChatController {
 
         // Use verified caller identity, not client-provided senderId
         ChatMessage message = chatService.sendMessage(chatId, callerId, senderRole, senderName,
-                text, type, inviteStudentId);
+                text, type, inviteStudentId, fileUrl, fileName);
         messagingTemplate.convertAndSend("/topic/chat." + chatId, message);
         return ResponseEntity.ok(message);
     }

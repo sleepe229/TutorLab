@@ -113,6 +113,26 @@ public class StudentAuthController {
         ));
     }
 
+    @PatchMapping("/me")
+    public ResponseEntity<?> updateMe(
+            @RequestHeader(value = "X-Student-Token", required = false) String tokenHeader,
+            @RequestBody Map<String, String> body) {
+        String accountId = extractAccountId(tokenHeader);
+        if (accountId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        try {
+            Map<String, Object> result = studentAccountService.updateAccount(
+                    accountId,
+                    body.get("firstName"),
+                    body.get("lastName"),
+                    body.get("currentPassword"),
+                    body.get("newPassword")
+            );
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/link")
     public ResponseEntity<?> linkToStudent(
             @RequestHeader(value = "X-Student-Token", required = false) String tokenHeader,
