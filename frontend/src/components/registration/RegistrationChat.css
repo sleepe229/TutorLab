@@ -469,3 +469,28 @@
   transition: color 0.15s;
 }
 .reg-back-btn:hover { color: var(--text-primary, #fff); }
+
+.reg-password-hint {
+  font-size: 12px;
+  color: var(--accent-orange, #FF6B35);
+  margin-bottom: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 107, 53, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 107, 53, 0.25);
+}
+
+.reg-switch-mode {
+  background: none;
+  border: none;
+  color: var(--text-muted, #888);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 10px;
+  display: block;
+  width: 100%;
+  text-align: center;
+  transition: color 0.15s;
+}
+.reg-switch-mode:hover { color: var(--accent-cyan, #00d4ff); }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { studentApi, studentAccountApi, liveApi, progressApi } from '../../services/api';
@@ -8,6 +8,22 @@ import { parseLocalDate } from '../../utils/date';
 import { useUnreadCount } from '../../hooks/useUnreadCount';
 import ThemeToggle from '../ui/ThemeToggle';
 import './StudentDashboard.css';
+
+const MONTH_NAMES = [
+  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
+];
+const WEEK_DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+function formatDateKey(year, month, day) {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function getCalInitials(name = '') {
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return parts[0][0] + parts[1][0];
+  return name.slice(0, 2);
+}
 
 function StudentDashboard({ studentAccountId, onLogout }) {
   const navigate = useNavigate();
@@ -19,7 +35,14 @@ function StudentDashboard({ studentAccountId, onLogout }) {
   const [progressNotes, setProgressNotes] = useState({});
   const [liveSession, setLiveSession] = useState(null);
   const [pastExpanded, setPastExpanded] = useState(false);
+  const [calDate, setCalDate] = useState(new Date());
+  const [calTooltip, setCalTooltip] = useState(null); // { day, lessons, rect }
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({ firstName: '', lastName: '', currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsMsg, setSettingsMsg] = useState({ type: '', text: '' });
   const wsLiveRef = useRef(null);
+  const calTooltipRef = useRef(null);
 
   const token = localStorage.getItem('studentToken');
   const firstName = localStorage.getItem('studentFirstName') || '';
@@ -30,6 +53,16 @@ function StudentDashboard({ studentAccountId, onLogout }) {
 
   useEffect(() => {
     return () => wsLiveRef.current?.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (calTooltipRef.current && !calTooltipRef.current.contains(e.target)) {
+        setCalTooltip(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
   const loadData = async () => {
@@ -137,6 +170,124 @@ function StudentDashboard({ studentAccountId, onLogout }) {
 
   const totalSessions = sessionHistory.reduce((sum, g) => sum + (g.sessions?.length || 0), 0);
 
+  // Analytics computations for Progress tab
+  const allNotes = useMemo(() => Object.values(progressNotes).flat(), [progressNotes]);
+  const avgRating = useMemo(() =>
+    allNotes.length > 0 ? (allNotes.reduce((s, n) => s + (n.rating || 0), 0) / allNotes.length).toFixed(1) : null
+  , [allNotes]);
+  const totalStudyTime = useMemo(() =>
+    sessionHistory.reduce((sum, g) => sum + (g.sessions || []).reduce((s, sess) => s + (sess.durationMinutes || 0), 0), 0)
+  , [sessionHistory]);
+  const skillFreq = useMemo(() => {
+    const freq = {};
+    allNotes.forEach(n => (n.skillTags || []).forEach(tag => { freq[tag] = (freq[tag] || 0) + 1; }));
+    return freq;
+  }, [allNotes]);
+  const maxSkillFreq = Math.max(1, ...Object.values(skillFreq));
+  const topSkill = Object.entries(skillFreq).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const ratingHistory = useMemo(() =>
+    allNotes.filter(n => n.date && n.rating).sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-10)
+  , [allNotes]);
+
+  const handleSettingsSave = async () => {
+    const { firstName: fn, lastName: ln, currentPassword, newPassword, confirmPassword } = settingsForm;
+    if (newPassword && newPassword !== confirmPassword) {
+      setSettingsMsg({ type: 'error', text: 'Новые пароли не совпадают' });
+      return;
+    }
+    if (newPassword && newPassword.length < 8) {
+      setSettingsMsg({ type: 'error', text: 'Пароль должен быть не менее 8 символов' });
+      return;
+    }
+    setSettingsLoading(true);
+    setSettingsMsg({ type: '', text: '' });
+    try {
+      const payload = {};
+      if (fn.trim()) payload.firstName = fn.trim();
+      if (ln !== undefined) payload.lastName = ln.trim();
+      if (newPassword) { payload.currentPassword = currentPassword; payload.newPassword = newPassword; }
+      const res = await studentAccountApi.updateMe(token, payload);
+      if (payload.firstName) localStorage.setItem('studentFirstName', res.data.firstName);
+      if (payload.lastName !== undefined) localStorage.setItem('studentLastName', res.data.lastName || '');
+      setSettingsMsg({ type: 'success', text: 'Данные сохранены' });
+      setSettingsForm(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Ошибка при сохранении';
+      setSettingsMsg({ type: 'error', text: msg });
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  // Calendar data
+  const lessonsByDate = useMemo(() => {
+    const map = {};
+    profiles.forEach(profile => {
+      (profile.lessonDates || []).forEach(dateStr => {
+        let date = dateStr, time = '', note = '';
+        if (dateStr.includes('|')) [date, time, note] = dateStr.split('|');
+        if (!map[date]) map[date] = [];
+        map[date].push({ date, time, note, tutorName: profile.tutorName, tutorId: profile.tutorId, studentId: profile.id });
+      });
+    });
+    return map;
+  }, [profiles]);
+
+  const calYear = calDate.getFullYear();
+  const calMonth = calDate.getMonth();
+  const calFirstDow = (() => { let d = new Date(calYear, calMonth, 1).getDay(); return d === 0 ? 6 : d - 1; })();
+  const calDaysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const todayKey = formatDateKey(today.getFullYear(), today.getMonth(), today.getDate());
+
+  const calTooltipStyle = useMemo(() => {
+    if (!calTooltip) return {};
+    const r = calTooltip.rect;
+    return {
+      top: r.bottom + window.scrollY + 8,
+      left: Math.min(r.left + window.scrollX, window.innerWidth - 280),
+    };
+  }, [calTooltip]);
+
+  const handleCalDayClick = (day, lessons, e) => {
+    if (!lessons || lessons.length === 0) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    setCalTooltip(prev => prev?.day === day && prev?.rect === rect ? null : { day, lessons, rect });
+  };
+
+  const renderCalDays = () => {
+    const cells = [];
+    for (let i = 0; i < calFirstDow; i++) {
+      cells.push(<div key={`e${i}`} className="sd-cal-day sd-cal-day--empty" />);
+    }
+    for (let d = 1; d <= calDaysInMonth; d++) {
+      const key = formatDateKey(calYear, calMonth, d);
+      const lessons = lessonsByDate[key] || [];
+      const isToday = key === todayKey;
+      const hasLessons = lessons.length > 0;
+      cells.push(
+        <div
+          key={d}
+          className={`sd-cal-day${hasLessons ? ' sd-cal-day--has-lesson' : ''}${isToday ? ' sd-cal-day--today' : ''}`}
+          onClick={hasLessons ? (e) => handleCalDayClick(d, lessons, e) : undefined}
+        >
+          <span className="sd-cal-day__num">{d}</span>
+          {hasLessons && (
+            <div className="sd-cal-day__chips">
+              {lessons.slice(0, 3).map((l, i) => (
+                <div key={i} className="sd-cal-chip">
+                  {l.time && <span className="sd-cal-chip__time">{l.time}</span>}
+                  <span className="sd-cal-chip__initials">{getCalInitials(l.tutorName || '')}</span>
+                </div>
+              ))}
+              {lessons.length > 3 && <div className="sd-cal-more">+{lessons.length - 3}</div>}
+            </div>
+          )}
+        </div>
+      );
+    }
+    return cells;
+  };
+
   const renderLessonCard = (l, i, studentProfile) => {
     const isToday = parseLocalDate(l.date).toDateString() === today.toDateString();
     const hasLive = isToday && liveSession && l.tutorId === liveSession.tutorId;
@@ -169,10 +320,10 @@ function StudentDashboard({ studentAccountId, onLogout }) {
     <div className="sd-container">
       <header className="sd-nav">
         <div className="sd-nav-inner">
-          <div className="sd-brand">
+          <button className="sd-brand sd-brand-btn" onClick={() => setActiveTab('home')} type="button">
             <div className="sd-logo">TL</div>
             <span className="sd-brand-name">TutorLab</span>
-          </div>
+          </button>
 
           <nav className="sd-nav-tabs">
             {[
@@ -327,53 +478,123 @@ function StudentDashboard({ studentAccountId, onLogout }) {
                 </section>
               </>
             )}
+
+            {/* Settings section */}
+            <section className="sd-section sd-settings-section">
+              <button
+                className="sd-settings-toggle"
+                onClick={() => { setSettingsOpen(v => !v); setSettingsMsg({ type: '', text: '' }); }}
+                type="button"
+              >
+                Настройки аккаунта {settingsOpen ? '▲' : '▼'}
+              </button>
+              {settingsOpen && (
+                <div className="sd-settings-form">
+                  <div className="sd-settings-row">
+                    <label className="sd-settings-label">Имя</label>
+                    <input
+                      className="sd-settings-input"
+                      type="text"
+                      placeholder={firstName || 'Имя'}
+                      value={settingsForm.firstName}
+                      onChange={e => setSettingsForm(p => ({ ...p, firstName: e.target.value }))}
+                    />
+                  </div>
+                  <div className="sd-settings-row">
+                    <label className="sd-settings-label">Фамилия</label>
+                    <input
+                      className="sd-settings-input"
+                      type="text"
+                      placeholder={lastName || 'Фамилия'}
+                      value={settingsForm.lastName}
+                      onChange={e => setSettingsForm(p => ({ ...p, lastName: e.target.value }))}
+                    />
+                  </div>
+                  <div className="sd-settings-divider">Изменить пароль</div>
+                  <div className="sd-settings-row">
+                    <label className="sd-settings-label">Текущий пароль</label>
+                    <input
+                      className="sd-settings-input"
+                      type="password"
+                      placeholder="••••••••"
+                      value={settingsForm.currentPassword}
+                      onChange={e => setSettingsForm(p => ({ ...p, currentPassword: e.target.value }))}
+                    />
+                  </div>
+                  <div className="sd-settings-row">
+                    <label className="sd-settings-label">Новый пароль</label>
+                    <input
+                      className="sd-settings-input"
+                      type="password"
+                      placeholder="Минимум 8 символов"
+                      value={settingsForm.newPassword}
+                      onChange={e => setSettingsForm(p => ({ ...p, newPassword: e.target.value }))}
+                    />
+                  </div>
+                  <div className="sd-settings-row">
+                    <label className="sd-settings-label">Повторите пароль</label>
+                    <input
+                      className="sd-settings-input"
+                      type="password"
+                      placeholder="••••••••"
+                      value={settingsForm.confirmPassword}
+                      onChange={e => setSettingsForm(p => ({ ...p, confirmPassword: e.target.value }))}
+                    />
+                  </div>
+                  {settingsMsg.text && (
+                    <p className={`sd-settings-msg sd-settings-msg--${settingsMsg.type}`}>{settingsMsg.text}</p>
+                  )}
+                  <button
+                    className="btn btn-primary sd-settings-save"
+                    onClick={handleSettingsSave}
+                    disabled={settingsLoading}
+                    type="button"
+                  >
+                    {settingsLoading ? 'Сохранение...' : 'Сохранить'}
+                  </button>
+                </div>
+              )}
+            </section>
           </>
         ) : activeTab === 'schedule' ? (
-          /* ── Schedule tab ── */
+          /* ── Schedule tab — Calendar ── */
           <div className="sd-schedule">
-            <div className="sd-greeting">
-              <h1>Расписание занятий</h1>
-              {allUpcoming.length > 0 && (
-                <p className="sd-greeting-sub">{allUpcoming.length} предстоящих</p>
-              )}
+            {/* Calendar */}
+            <div className="sd-calendar">
+              <div className="sd-cal-header">
+                <button className="sd-cal-nav" onClick={() => setCalDate(new Date(calYear, calMonth - 1, 1))} aria-label="Предыдущий месяц">‹</button>
+                <div className="sd-cal-title">
+                  <span>{MONTH_NAMES[calMonth]} {calYear}</span>
+                  <button className="sd-cal-today-btn" onClick={() => setCalDate(new Date())}>Сегодня</button>
+                </div>
+                <button className="sd-cal-nav" onClick={() => setCalDate(new Date(calYear, calMonth + 1, 1))} aria-label="Следующий месяц">›</button>
+              </div>
+              <div className="sd-cal-weekdays">
+                {WEEK_DAYS.map(w => <div key={w} className="sd-cal-weekday">{w}</div>)}
+              </div>
+              <div className="sd-cal-grid">
+                {renderCalDays()}
+              </div>
             </div>
 
-            {allUpcoming.length === 0 && allPast.length === 0 && (
-              <div className="sd-link-section">
-                <p className="sd-link-hint">Нет занятий. Попросите репетитора добавить расписание.</p>
-              </div>
-            )}
-
-            {allUpcoming.length > 0 && (
-              <section className="sd-section">
-                <h2 className="sd-section-title">Предстоящие</h2>
-                <div className="sd-lessons">
-                  {allUpcoming.map((l, i) => {
-                    const studentProfile = profiles.find(p => p.id === l.studentId);
-                    return renderLessonCard(l, i, studentProfile);
-                  })}
-                </div>
-              </section>
-            )}
-
+            {/* Past lessons — collapsed */}
             {allPast.length > 0 && (
-              <section className="sd-section">
+              <section className="sd-section" style={{ marginTop: '24px' }}>
                 <button
                   className="sd-past-toggle"
                   onClick={() => setPastExpanded(v => !v)}
                 >
                   {pastExpanded
                     ? `Скрыть историю занятий ▲`
-                    : `Показать историю занятий (${allPast.length}) ▼`}
+                    : `История занятий (${allPast.length}) ▼`}
                 </button>
                 {pastExpanded && (
                   <div className="sd-lessons sd-past" style={{ marginTop: '12px' }}>
                     {allPast.slice(0, 30).map((l, i) => {
                       const studentProfile = profiles.find(p => p.id === l.studentId);
-                      const isToday = parseLocalDate(l.date).toDateString() === today.toDateString();
                       const mats = studentProfile ? getMaterials(studentProfile, l.date) : [];
                       return (
-                        <div key={i} className={`sd-lesson-card sd-past-card${isToday ? ' sd-today' : ''}`}>
+                        <div key={i} className="sd-lesson-card sd-past-card">
                           <div className="sd-lesson-meta">
                             <span className="sd-lesson-date">{formatDate(l.date)}</span>
                             {l.time && <span className="sd-lesson-time">{l.time}</span>}
@@ -396,12 +617,65 @@ function StudentDashboard({ studentAccountId, onLogout }) {
             )}
           </div>
         ) : (
-          /* ── Progress tab (merged: session history + tutor notes) ── */
+          /* ── Progress tab — Analytics ── */
           <div className="sd-schedule">
             <div className="sd-greeting">
               <h1>Прогресс</h1>
-              <p className="sd-greeting-sub">Конспекты уроков и заметки репетитора</p>
+              <p className="sd-greeting-sub">Аналитика, конспекты и заметки репетитора</p>
             </div>
+
+            {/* Analytics stats row */}
+            <div className="sd-analytics-stats">
+              <div className="sd-analytics-stat">
+                <span className="sd-analytics-val">{totalSessions}</span>
+                <span className="sd-analytics-label">уроков</span>
+              </div>
+              <div className="sd-analytics-stat">
+                <span className="sd-analytics-val">{avgRating !== null ? `${avgRating}★` : '—'}</span>
+                <span className="sd-analytics-label">средняя оценка</span>
+              </div>
+              <div className="sd-analytics-stat">
+                <span className="sd-analytics-val">{totalStudyTime > 0 ? `${Math.round(totalStudyTime / 60)} ч` : '—'}</span>
+                <span className="sd-analytics-label">учебного времени</span>
+              </div>
+              <div className="sd-analytics-stat">
+                <span className="sd-analytics-val sd-analytics-val--skill">{topSkill || '—'}</span>
+                <span className="sd-analytics-label">топ навык</span>
+              </div>
+            </div>
+
+            {/* Rating dynamics */}
+            {ratingHistory.length > 1 && (
+              <section className="sd-section">
+                <h2 className="sd-subsection-title">Динамика оценок</h2>
+                <div className="sd-rating-chart">
+                  {ratingHistory.map((n, i) => (
+                    <div key={i} className="sd-rating-bar-wrap">
+                      <div className="sd-rating-bar" style={{ height: `${(n.rating / 5) * 100}%` }} title={`${n.rating}★`} />
+                      <span className="sd-rating-bar-label">{n.rating}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Skill map */}
+            {Object.keys(skillFreq).length > 0 && (
+              <section className="sd-section">
+                <h2 className="sd-subsection-title">Навыки</h2>
+                <div className="sd-skill-map">
+                  {Object.entries(skillFreq).sort((a, b) => b[1] - a[1]).map(([tag, count]) => (
+                    <span
+                      key={tag}
+                      className="sd-skill-chip"
+                      style={{ fontSize: `${0.75 + (count / maxSkillFreq) * 0.5}rem`, opacity: 0.6 + (count / maxSkillFreq) * 0.4 }}
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
 
             {/* Session recaps */}
             <section className="sd-section">
@@ -471,6 +745,50 @@ function StudentDashboard({ studentAccountId, onLogout }) {
           </div>
         )}
       </div>
+
+      {/* Calendar tooltip */}
+      {calTooltip && (
+        <div className="sd-cal-tooltip" style={calTooltipStyle} ref={calTooltipRef}>
+          <div className="sd-cal-tooltip__date">
+            {new Date(calYear, calMonth, calTooltip.day).toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </div>
+          {calTooltip.lessons.map((l, i) => {
+            const dateKey = formatDateKey(calYear, calMonth, calTooltip.day);
+            const isToday = dateKey === todayKey;
+            const hasLive = isToday && liveSession && l.tutorId === liveSession.tutorId;
+            const studentProfile = profiles.find(p => p.id === l.studentId);
+            const mats = studentProfile ? getMaterials(studentProfile, dateKey) : [];
+            return (
+              <div key={i} className="sd-cal-tooltip__lesson">
+                <div className="sd-cal-tooltip__avatar">{getCalInitials(l.tutorName || '')}</div>
+                <div className="sd-cal-tooltip__info">
+                  <span className="sd-cal-tooltip__name">{l.tutorName || 'Репетитор'}</span>
+                  {l.time && <span className="sd-cal-tooltip__time">{l.time}</span>}
+                  {l.note && <span className="sd-cal-tooltip__note">{l.note}</span>}
+                  {mats.length > 0 && (
+                    <div className="sd-cal-tooltip__mats">
+                      {mats.map((m, j) => (
+                        <a key={j} href={m.url} target="_blank" rel="noopener noreferrer" download className="sd-cal-tooltip__mat-link">
+                          📄 {m.name}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {hasLive && (
+                  <a
+                    href={`/live/student/${liveSession.sessionId}`}
+                    className="btn btn-primary sd-cal-tooltip__join"
+                    onClick={() => setCalTooltip(null)}
+                  >
+                    Подключиться
+                  </a>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
