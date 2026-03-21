@@ -124,3 +124,98 @@
   .sd-tab { padding: 6px 10px; font-size: 13px; }
   .sd-brand-name { display: none; }
 }
+
+/* ── Calendar ── */
+.sd-calendar { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 20px; }
+
+.sd-cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 8px; }
+.sd-cal-nav { background: none; border: 1px solid var(--border-color); border-radius: 8px; width: 34px; height: 34px; cursor: pointer; font-size: 20px; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; transition: all 0.15s; line-height: 1; flex-shrink: 0; }
+.sd-cal-nav:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+.sd-cal-title { display: flex; align-items: center; gap: 10px; flex: 1; justify-content: center; }
+.sd-cal-title span { font-size: 17px; font-weight: 700; color: var(--text-primary); }
+.sd-cal-today-btn { background: none; border: 1px solid var(--border-color); border-radius: 6px; padding: 3px 10px; font-size: 12px; color: var(--text-secondary); cursor: pointer; transition: all 0.15s; }
+.sd-cal-today-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+
+.sd-cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 6px; }
+.sd-cal-weekday { text-align: center; font-size: 11px; font-weight: 600; color: var(--text-secondary); padding: 4px 0; text-transform: uppercase; letter-spacing: 0.05em; }
+
+.sd-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+
+.sd-cal-day { min-height: 66px; background: var(--bg-page); border: 1px solid var(--border-color); border-radius: 10px; padding: 6px; display: flex; flex-direction: column; gap: 3px; cursor: default; }
+.sd-cal-day--empty { background: transparent; border-color: transparent; }
+.sd-cal-day--has-lesson { cursor: pointer; border-color: rgba(91,115,245,0.3); background: rgba(91,115,245,0.03); }
+.sd-cal-day--has-lesson:hover { border-color: var(--accent-primary); background: rgba(91,115,245,0.08); }
+.sd-cal-day--today { border-color: var(--accent-primary) !important; border-width: 2px; }
+.sd-cal-day__num { font-size: 12px; font-weight: 600; color: var(--text-primary); line-height: 1; }
+.sd-cal-day--today .sd-cal-day__num { color: var(--accent-primary); }
+
+.sd-cal-day__chips { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.sd-cal-chip { display: flex; align-items: center; gap: 2px; background: var(--accent-primary); border-radius: 4px; padding: 1px 4px; overflow: hidden; }
+.sd-cal-chip__time { font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.85); white-space: nowrap; flex-shrink: 0; }
+.sd-cal-chip__initials { font-size: 9px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sd-cal-more { font-size: 9px; color: var(--accent-primary); font-weight: 600; padding-left: 2px; }
+
+/* Calendar tooltip */
+.sd-cal-tooltip { position: fixed; z-index: 1000; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 14px; min-width: 240px; max-width: 300px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); display: flex; flex-direction: column; gap: 8px; }
+.sd-cal-tooltip__date { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: capitalize; margin-bottom: 2px; }
+.sd-cal-tooltip__lesson { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; background: var(--bg-page); }
+.sd-cal-tooltip__avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-primary); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.sd-cal-tooltip__info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.sd-cal-tooltip__name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.sd-cal-tooltip__time { font-size: 12px; color: var(--accent-primary); font-weight: 500; }
+.sd-cal-tooltip__note { font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-cal-tooltip__join { padding: 5px 12px; font-size: 12px; text-decoration: none; white-space: nowrap; flex-shrink: 0; }
+
+@media (max-width: 600px) {
+  .sd-calendar { padding: 14px 10px; }
+  .sd-cal-day { min-height: 52px; padding: 4px; }
+  .sd-cal-day__num { font-size: 11px; }
+  .sd-cal-chip { padding: 1px 3px; }
+  .sd-cal-chip__time { display: none; }
+}
+
+/* Logo clickable */
+.sd-brand-btn { background: none; border: none; cursor: pointer; padding: 0; transition: opacity 0.15s; }
+.sd-brand-btn:hover { opacity: 0.75; }
+
+/* Calendar tooltip materials */
+.sd-cal-tooltip__mats { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+.sd-cal-tooltip__mat-link { font-size: 11px; color: var(--accent-primary); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sd-cal-tooltip__mat-link:hover { text-decoration: underline; }
+
+/* Analytics stats (Progress tab) */
+.sd-analytics-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+.sd-analytics-stat { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 18px 14px; text-align: center; }
+.sd-analytics-val { display: block; font-size: 22px; font-weight: 800; color: var(--text-primary); line-height: 1.1; margin-bottom: 5px; }
+.sd-analytics-val--skill { font-size: 14px; font-weight: 700; }
+.sd-analytics-label { font-size: 11px; color: var(--text-secondary); }
+
+/* Rating dynamics chart */
+.sd-rating-chart { display: flex; align-items: flex-end; gap: 6px; height: 80px; padding: 8px 0 0; }
+.sd-rating-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 3px; }
+.sd-rating-bar { width: 100%; background: var(--accent-primary); border-radius: 4px 4px 0 0; min-height: 4px; transition: height 0.3s; }
+.sd-rating-bar-label { font-size: 10px; color: var(--text-secondary); }
+
+/* Skill map */
+.sd-skill-map { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0; }
+.sd-skill-chip { background: rgba(91,115,245,0.12); color: var(--accent-primary); border-radius: 20px; padding: 4px 12px; font-weight: 600; transition: background 0.15s; cursor: default; }
+.sd-skill-chip:hover { background: rgba(91,115,245,0.22); }
+
+/* Settings section */
+.sd-settings-section { border-top: 1px solid var(--border-color); padding-top: 20px; margin-top: 8px; }
+.sd-settings-toggle { background: none; border: none; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text-secondary); padding: 0; transition: color 0.15s; }
+.sd-settings-toggle:hover { color: var(--text-primary); }
+.sd-settings-form { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; max-width: 420px; }
+.sd-settings-row { display: flex; flex-direction: column; gap: 4px; }
+.sd-settings-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+.sd-settings-input { padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; color: var(--text-primary); font-size: 14px; outline: none; transition: border-color 0.15s; }
+.sd-settings-input:focus { border-color: var(--accent-primary); }
+.sd-settings-divider { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--border-color); }
+.sd-settings-msg { font-size: 13px; margin: 0; padding: 6px 10px; border-radius: 8px; }
+.sd-settings-msg--success { background: rgba(34,197,94,0.12); color: #22c55e; }
+.sd-settings-msg--error { background: rgba(239,68,68,0.12); color: #ef4444; }
+.sd-settings-save { margin-top: 4px; align-self: flex-start; }
+
+@media (max-width: 600px) {
+  .sd-analytics-stats { grid-template-columns: repeat(2, 1fr); }
+}

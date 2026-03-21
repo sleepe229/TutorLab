@@ -10,7 +10,8 @@ public interface ChatService {
     List<Chat> getChatsForTutor(String tutorId);
     List<Chat> getChatsForStudent(String studentAccountId);
     ChatMessage sendMessage(String chatId, String senderId, String senderRole, String senderName,
-                            String text, String type, String inviteStudentId);
+                            String text, String type, String inviteStudentId,
+                            String fileUrl, String fileName);
     List<ChatMessage> getMessages(String chatId);
     void markReadByTutor(String chatId);
     void markReadByStudent(String chatId);

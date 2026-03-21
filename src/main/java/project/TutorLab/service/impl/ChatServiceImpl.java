@@ -36,7 +36,8 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public ChatMessage sendMessage(String chatId, String senderId, String senderRole, String senderName,
-                                   String text, String type, String inviteStudentId) {
+                                   String text, String type, String inviteStudentId,
+                                   String fileUrl, String fileName) {
         ChatMessage message = new ChatMessage();
         message.setId(UUID.randomUUID().toString());
         message.setChatId(chatId);
@@ -46,6 +47,8 @@ public class ChatServiceImpl implements ChatService {
         message.setText(text);
         message.setType(type != null ? type : "TEXT");
         message.setInviteStudentId(inviteStudentId);
+        message.setFileUrl(fileUrl);
+        message.setFileName(fileName);
         message.setTimestamp(System.currentTimeMillis());
 
         chatRepository.saveMessage(chatId, message);

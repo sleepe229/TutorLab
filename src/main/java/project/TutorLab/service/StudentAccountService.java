@@ -26,4 +26,11 @@ public interface StudentAccountService {
      * One DTO per linked student profile, ordered by most recent session descending.
      */
     List<StudentSessionHistoryDto> getStudentHistory(String accountId);
+
+    /**
+     * Updates name and/or password for the given account.
+     * If newPassword is provided, currentPassword must be correct.
+     */
+    Map<String, Object> updateAccount(String accountId, String firstName, String lastName,
+                                      String currentPassword, String newPassword);
 }

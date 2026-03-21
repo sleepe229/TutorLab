@@ -222,6 +222,18 @@ export const studentAccountApi = {
     api.get(`/students/auth/snapshot/${snapshotId}/recap`, { headers: { 'X-Student-Token': token } }),
   getSnapshotSlides: (token, snapshotId) =>
     api.get(`/students/auth/snapshot/${snapshotId}/slides`, { headers: { 'X-Student-Token': token } }),
+  updateMe: (token, data) =>
+    api.patch('/students/auth/me', data, { headers: { 'X-Student-Token': token } }),
+  uploadChatFile: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('tutorId', 'chat');
+    formData.append('studentId', 'shared');
+    const response = await api.post('/students/upload-material', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
 };
 
 export const liveApi = {
