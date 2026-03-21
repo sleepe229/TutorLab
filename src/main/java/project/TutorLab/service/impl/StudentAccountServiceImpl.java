@@ -184,6 +184,32 @@ public class StudentAccountServiceImpl implements StudentAccountService {
         return result;
     }
 
+    @Override
+    public Map<String, Object> updateAccount(String accountId, String firstName, String lastName,
+                                              String currentPassword, String newPassword) {
+        StudentAccount account = accountRepository.findById(accountId);
+        if (account == null) throw new IllegalArgumentException("Account not found");
+
+        if (firstName != null && !firstName.isBlank()) account.setFirstName(firstName.trim());
+        if (lastName != null) account.setLastName(lastName.trim());
+
+        if (newPassword != null && !newPassword.isBlank()) {
+            if (currentPassword == null || !encoder.matches(currentPassword, account.getPasswordHash())) {
+                throw new IllegalArgumentException("Current password is incorrect");
+            }
+            if (newPassword.length() < 8) {
+                throw new IllegalArgumentException("Password must be at least 8 characters");
+            }
+            account.setPasswordHash(encoder.encode(newPassword));
+        }
+
+        accountRepository.save(account);
+        return Map.of(
+                "firstName", account.getFirstName(),
+                "lastName", account.getLastName() != null ? account.getLastName() : ""
+        );
+    }
+
     private Map<String, Object> buildResponse(StudentAccount account) {
         String refreshToken = UUID.randomUUID().toString();
         redisTemplate.opsForValue().set(

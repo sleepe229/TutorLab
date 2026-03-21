@@ -219,15 +219,29 @@ function StudentDetail({ tutorId }) {
         tutorId={tutorId}
         activePage="student"
         breadcrumb={{ label: fullName }}
-        extraActions={student.studentAccountId ? (
-          <button
-            className="btn btn-secondary"
-            style={{ fontSize: '13px', padding: '6px 14px' }}
-            onClick={() => navigate('/chat')}
-          >
-            Написать
-          </button>
-        ) : null}
+        extraActions={
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              className="btn btn-secondary"
+              style={{ fontSize: '13px', padding: '6px 14px' }}
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.origin + '/invite/' + student.id);
+                toast.success('Ссылка скопирована');
+              }}
+            >
+              Скопировать ссылку
+            </button>
+            {student.studentAccountId && (
+              <button
+                className="btn btn-secondary"
+                style={{ fontSize: '13px', padding: '6px 14px' }}
+                onClick={() => navigate('/chat', { state: { openStudentAccountId: student.studentAccountId } })}
+              >
+                Написать
+              </button>
+            )}
+          </div>
+        }
       />
 
       <div className="container">

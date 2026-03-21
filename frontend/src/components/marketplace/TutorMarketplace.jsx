@@ -74,6 +74,7 @@ function buildMarketplaceSchema(tutors) {
 
 function TutorMarketplace({ studentAccountId }) {
   const navigate = useNavigate();
+  const isTutorLoggedIn = !!localStorage.getItem('sessionToken');
   const [tutors, setTutors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -143,6 +144,8 @@ function TutorMarketplace({ studentAccountId }) {
               <ThemeToggle />
               {studentAccountId ? (
                 <button className="btn btn-secondary" onClick={() => navigate('/me')}>Кабинет</button>
+              ) : isTutorLoggedIn ? (
+                <button className="btn btn-secondary" onClick={() => navigate('/home')}>Мой кабинет</button>
               ) : (
                 <button className="btn btn-primary" onClick={() => navigate('/home')}>Войти</button>
               )}
