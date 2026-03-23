@@ -142,6 +142,7 @@ export const tutorApi = {
   tutorExists: (id) => api.get(`/tutors/${id}/exists`),
   loginExists: (login) => api.get(`/tutors/login/${login}/exists`),
   getPublicTutors: () => api.get('/tutors/public'),
+  getTutorProfile: (id) => api.get(`/tutors/${id}/profile`),
   uploadPhoto: async (file) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -224,6 +225,8 @@ export const studentAccountApi = {
     api.get(`/students/auth/snapshot/${snapshotId}/slides`, { headers: { 'X-Student-Token': token } }),
   updateMe: (token, data) =>
     api.patch('/students/auth/me', data, { headers: { 'X-Student-Token': token } }),
+  updatePhoto: (token, photoUrl) =>
+    api.patch('/students/auth/me/photo', { photoUrl }, { headers: { 'X-Student-Token': token } }),
   uploadChatFile: async (file) => {
     const formData = new FormData();
     formData.append('file', file);

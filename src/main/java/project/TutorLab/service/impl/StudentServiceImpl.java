@@ -82,6 +82,7 @@ public class StudentServiceImpl implements StudentService {
             cardDto.setPhotoUrl(student.getPhotoUrl());
             cardDto.setIsFavorite(favoriteIds.contains(student.getId()));
             cardDto.setLessonDates(student.getLessonDates());
+            cardDto.setStudentAccountId(student.getStudentAccountId());
             cardDtos.add(cardDto);
         }
         
@@ -312,6 +313,14 @@ public class StudentServiceImpl implements StudentService {
         List<ProgressNote> notes = new ArrayList<>(student.getProgressNotes());
         notes.sort(Comparator.comparing(ProgressNote::getDate, Comparator.nullsLast(Comparator.reverseOrder())));
         return notes;
+    }
+
+    @Override
+    public void setStudentAccountId(String studentId, String studentAccountId) {
+        Student student = studentRepository.findById(studentId);
+        if (student == null) return;
+        student.setStudentAccountId(studentAccountId);
+        studentRepository.save(student);
     }
 }
 

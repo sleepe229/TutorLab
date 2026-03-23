@@ -204,10 +204,22 @@ public class StudentAccountServiceImpl implements StudentAccountService {
         }
 
         accountRepository.save(account);
-        return Map.of(
-                "firstName", account.getFirstName(),
-                "lastName", account.getLastName() != null ? account.getLastName() : ""
-        );
+        Map<String, Object> result = new HashMap<>();
+        result.put("firstName", account.getFirstName());
+        result.put("lastName", account.getLastName() != null ? account.getLastName() : "");
+        if (account.getPhotoUrl() != null) result.put("photoUrl", account.getPhotoUrl());
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> updatePhotoUrl(String accountId, String photoUrl) {
+        StudentAccount account = accountRepository.findById(accountId);
+        if (account == null) throw new IllegalArgumentException("Account not found");
+        account.setPhotoUrl(photoUrl);
+        accountRepository.save(account);
+        Map<String, Object> result = new HashMap<>();
+        result.put("photoUrl", account.getPhotoUrl());
+        return result;
     }
 
     private Map<String, Object> buildResponse(StudentAccount account) {
@@ -225,6 +237,7 @@ public class StudentAccountServiceImpl implements StudentAccountService {
         resp.put("firstName", account.getFirstName());
         resp.put("lastName", account.getLastName() != null ? account.getLastName() : "");
         resp.put("linkedStudentIds", account.getLinkedStudentIds());
+        if (account.getPhotoUrl() != null) resp.put("photoUrl", account.getPhotoUrl());
         return resp;
     }
 }

@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { studentApi } from '../../services/api';
 import TutorNav from '../ui/TutorNav';
 import ChatPanel from './ChatPanel';
 import './ChatPage.css';
@@ -12,6 +13,19 @@ function ChatPage({ role, senderId, senderName, token, onLogout, backPath = '/ho
   const navigate = useNavigate();
   const location = useLocation();
   const openStudentAccountId = location.state?.openStudentAccountId || null;
+
+  // For tutor: navigate to the student profile given the studentAccountId from chat
+  const handleNavigateToStudent = useCallback(async (studentAccountId) => {
+    if (!studentAccountId) return;
+    try {
+      const res = await studentApi.getStudentsByTutor(senderId);
+      const students = res.data || [];
+      const match = students.find(s => s.studentAccountId === studentAccountId);
+      if (match) {
+        navigate(`/student/${match.id}`);
+      }
+    } catch { /* silent */ }
+  }, [senderId, navigate]);
 
   return (
     <div className="chat-page">
@@ -52,6 +66,7 @@ function ChatPage({ role, senderId, senderName, token, onLogout, backPath = '/ho
           token={token}
           inline
           initialOpenStudentAccountId={openStudentAccountId}
+          onNavigateToStudent={role === 'TUTOR' ? handleNavigateToStudent : undefined}
         />
       </div>
     </div>

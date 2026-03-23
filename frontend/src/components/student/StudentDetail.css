@@ -141,7 +141,11 @@
 
 .student-detail-container {
   min-height: 100vh;
-  padding: 24px 0;
+}
+
+.student-detail-container > .container {
+  padding-top: 24px;
+  padding-bottom: 40px;
 }
 
 .student-detail-container .loading {
