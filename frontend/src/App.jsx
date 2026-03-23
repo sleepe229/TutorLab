@@ -14,6 +14,7 @@ import InviteHandler from './components/invite/InviteHandler';
 import Footer from './components/ui/Footer';
 import JoinTutor from './components/join/JoinTutor';
 import TutorMarketplace from './components/marketplace/TutorMarketplace';
+import TutorProfilePage from './components/tutor/TutorProfilePage';
 import PrivacyPage from './components/legal/PrivacyPage';
 import TermsPage from './components/legal/TermsPage';
 import AboutPage from './components/about/AboutPage';
@@ -253,6 +254,8 @@ function AppContent() {
         />
         {/* Tutor marketplace — accessible to everyone */}
         <Route path="/tutors" element={<TutorMarketplace studentAccountId={studentAccountId} />} />
+        {/* Tutor public profile card — accessible to everyone */}
+        <Route path="/tutor/:id" element={<TutorProfilePage studentAccountId={studentAccountId} />} />
 
         {/* Legal and about pages */}
         <Route path="/privacy" element={<PrivacyPage />} />

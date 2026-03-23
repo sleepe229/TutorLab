@@ -1,12 +1,11 @@
 .settings-container {
   min-height: 100vh;
-  padding: 40px 0;
 }
 
 .settings-content {
   max-width: 800px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 40px 20px;
 }
 
 .settings-header {
@@ -244,6 +243,94 @@
   color: var(--text-secondary);
   font-size: 18px;
   font-weight: 500;
+}
+
+/* ── Subject chips ──────────────────────────────────────── */
+.subjects-chip-box {
+  min-height: 46px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  cursor: text;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.subjects-chip-box:focus-within {
+  border-color: var(--accent-primary, #5B73F5);
+  box-shadow: 0 0 0 3px rgba(91, 115, 245, 0.18);
+}
+
+.subject-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 12px;
+  background: rgba(91, 115, 245, 0.15);
+  border: 1px solid rgba(91, 115, 245, 0.35);
+  border-radius: 20px;
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.subject-chip__remove {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+
+.subject-chip__remove:hover { color: #e05252; }
+
+.subjects-chip-input {
+  flex: 1;
+  min-width: 140px;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  color: var(--text-primary);
+  font-family: inherit;
+  padding: 2px 0;
+}
+
+.subjects-chip-input::placeholder { color: var(--text-muted); }
+
+.subjects-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.subject-suggestion {
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--card-border, var(--glass-border));
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.subject-suggestion:hover {
+  border-color: var(--accent-primary, #5B73F5);
+  color: var(--accent-primary, #5B73F5);
+  background: rgba(91, 115, 245, 0.08);
 }
 
 .form-group--checkbox { margin-top: 12px; }

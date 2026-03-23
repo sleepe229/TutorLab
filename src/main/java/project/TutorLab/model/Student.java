@@ -25,6 +25,8 @@ public class Student {
      * Capped at 500 notes in service layer to prevent unbounded growth.
      */
     private List<ProgressNote> progressNotes = new ArrayList<>();
+    /** StudentAccount ID linked to this student profile (set when student self-registers via /join) */
+    private String studentAccountId;
 
     public Student() {
     }
@@ -149,5 +151,8 @@ public class Student {
     public void setProgressNotes(List<ProgressNote> progressNotes) {
         this.progressNotes = progressNotes;
     }
+
+    public String getStudentAccountId() { return studentAccountId; }
+    public void setStudentAccountId(String studentAccountId) { this.studentAccountId = studentAccountId; }
 }
 

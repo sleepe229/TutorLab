@@ -29,5 +29,8 @@ public interface StudentService {
 
     /** Returns all progress notes for a student, newest first. */
     List<ProgressNote> getProgressNotes(String studentId);
+
+    /** Links a StudentAccount to this student profile for navigation and messaging. */
+    void setStudentAccountId(String studentId, String studentAccountId);
 }
 

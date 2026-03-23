@@ -104,13 +104,14 @@ public class StudentAuthController {
         if (accountId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         StudentAccount account = studentAccountService.getById(accountId);
         if (account == null) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(Map.of(
-                "studentAccountId", account.getId(),
-                "email", account.getEmail(),
-                "firstName", account.getFirstName(),
-                "lastName", account.getLastName() != null ? account.getLastName() : "",
-                "linkedStudentIds", account.getLinkedStudentIds()
-        ));
+        java.util.Map<String, Object> resp = new java.util.HashMap<>();
+        resp.put("studentAccountId", account.getId());
+        resp.put("email", account.getEmail());
+        resp.put("firstName", account.getFirstName());
+        resp.put("lastName", account.getLastName() != null ? account.getLastName() : "");
+        resp.put("linkedStudentIds", account.getLinkedStudentIds());
+        if (account.getPhotoUrl() != null) resp.put("photoUrl", account.getPhotoUrl());
+        return ResponseEntity.ok(resp);
     }
 
     @PatchMapping("/me")
@@ -205,6 +206,25 @@ public class StudentAuthController {
             if (snap != null && studentId.equals(snap.getStudentId())) return true;
         }
         return false;
+    }
+
+    /** Updates the student account's avatar photo URL. */
+    @PatchMapping("/me/photo")
+    public ResponseEntity<?> updatePhoto(
+            @RequestHeader(value = "X-Student-Token", required = false) String tokenHeader,
+            @RequestBody Map<String, String> body) {
+        String accountId = extractAccountId(tokenHeader);
+        if (accountId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        String photoUrl = body.get("photoUrl");
+        if (photoUrl == null || photoUrl.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "photoUrl required"));
+        }
+        try {
+            Map<String, Object> result = studentAccountService.updatePhotoUrl(accountId, photoUrl);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     /** Decode JWT to extract the student account ID (JWT subject). */

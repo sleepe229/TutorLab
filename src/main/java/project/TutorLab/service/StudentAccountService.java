@@ -33,4 +33,7 @@ public interface StudentAccountService {
      */
     Map<String, Object> updateAccount(String accountId, String firstName, String lastName,
                                       String currentPassword, String newPassword);
+
+    /** Updates the student account's avatar photo URL. */
+    Map<String, Object> updatePhotoUrl(String accountId, String photoUrl);
 }

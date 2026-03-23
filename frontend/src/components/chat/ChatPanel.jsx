@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { chatApi, studentAccountApi } from '../../services/api';
 import { API_BASE } from '../../config.js';
@@ -15,7 +16,8 @@ import './ChatPanel.css';
  *   token: JWT (for student role only — tutor uses regular session token)
  *   onClose: () => void
  */
-function ChatPanel({ role, senderId, senderName, token, onClose, inline = false, initialChatId = null, initialOpenStudentAccountId = null }) {
+function ChatPanel({ role, senderId, senderName, token, onClose, inline = false, initialChatId = null, initialOpenStudentAccountId = null, onNavigateToStudent }) {
+  const navigate = useNavigate();
   const [chats, setChats] = useState([]);
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -23,6 +25,7 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [declinedIds, setDeclinedIds] = useState(new Set());
   const fileInputRef = useRef(null);
   const wsRef = useRef(null);
   const bottomRef = useRef(null);
@@ -266,8 +269,27 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
             <div className="chat-messages__empty">Выберите диалог</div>
           ) : (
             <>
-              <div className="chat-messages__name">
-                {isStudent ? activeChat.tutorName : activeChat.studentName}
+              <div className="chat-messages__header">
+                <span className="chat-messages__name">
+                  {isStudent ? activeChat.tutorName : activeChat.studentName}
+                </span>
+                {isStudent ? (
+                  <button
+                    className="chat-profile-btn"
+                    onClick={() => navigate(`/tutor/${activeChat.tutorId}`)}
+                    title="Профиль репетитора"
+                  >
+                    Профиль →
+                  </button>
+                ) : onNavigateToStudent ? (
+                  <button
+                    className="chat-profile-btn"
+                    onClick={() => onNavigateToStudent(activeChat.studentAccountId)}
+                    title="Профиль ученика"
+                  >
+                    Профиль →
+                  </button>
+                ) : null}
               </div>
               <div className="chat-messages__list">
                 {groupedMessages.map((item, i) => {
@@ -280,25 +302,45 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
                   }
                   const msg = item.msg;
                   const isMine = msg.senderId === senderId;
+                  const isDeclined = declinedIds.has(msg.id);
                   return (
                     <div key={msg.id || i} className={`chat-msg${isMine ? ' chat-msg--mine' : ''}`}>
                       {msg.type === 'INVITE' ? (
-                        <div className="chat-msg__invite">
-                          <span className="chat-msg__invite-icon">🎓</span>
-                          <div>
-                            <p className="chat-msg__invite-text">
-                              {isMine ? 'Вы отправили приглашение' : `${msg.senderName} приглашает вас`}
-                            </p>
-                            {!isMine && msg.inviteStudentId && (
-                              <a
-                                href={`/invite/${msg.inviteStudentId}`}
-                                className="btn btn-primary chat-msg__invite-btn"
-                              >
-                                Принять приглашение
-                              </a>
-                            )}
+                        <div className="chat-msg__invite-card">
+                          <div className="chat-msg__invite-top">
+                            <span className="chat-msg__invite-icon">🎓</span>
+                            <div className="chat-msg__invite-body">
+                              <p className="chat-msg__invite-title">
+                                {isMine ? 'Приглашение отправлено' : 'Приглашение к занятиям'}
+                              </p>
+                              <p className="chat-msg__invite-sub">
+                                {isMine
+                                  ? `Ожидаем ответа от ${activeChat?.studentName || 'ученика'}`
+                                  : `${msg.senderName} приглашает вас в качестве ученика`}
+                              </p>
+                            </div>
                           </div>
-                          <span className="chat-msg__time">{formatTime(msg.timestamp)}</span>
+                          {!isMine && !isDeclined && msg.inviteStudentId && (
+                            <div className="chat-msg__invite-actions">
+                              <a
+                                href={`/join/${msg.inviteStudentId}`}
+                                className="chat-invite-accept"
+                              >
+                                Принять
+                              </a>
+                              <button
+                                type="button"
+                                className="chat-invite-decline"
+                                onClick={() => setDeclinedIds(prev => new Set([...prev, msg.id]))}
+                              >
+                                Отклонить
+                              </button>
+                            </div>
+                          )}
+                          {!isMine && isDeclined && (
+                            <p className="chat-msg__invite-declined">Приглашение отклонено</p>
+                          )}
+                          <span className="chat-msg__invite-time">{formatTime(msg.timestamp)}</span>
                         </div>
                       ) : msg.type === 'FILE' ? (
                         <div className="chat-msg__bubble chat-msg__file">

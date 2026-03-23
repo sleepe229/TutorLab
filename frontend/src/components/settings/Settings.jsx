@@ -1,8 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { tutorApi } from '../../services/api';
 import TutorNav from '../ui/TutorNav';
 import './Settings.css';
+
+const SUGGESTED_SUBJECTS = [
+  'Математика', 'Физика', 'Химия', 'Биология', 'Английский',
+  'Немецкий', 'Французский', 'История', 'Обществознание', 'Русский',
+  'Литература', 'Информатика', 'Программирование', 'Геометрия', 'Алгебра',
+  'ЕГЭ', 'ОГЭ', 'Экономика', 'Право', 'Музыка',
+];
 
 function Settings({ tutorId, onBack, onLogout }) {
   const [tutor, setTutor] = useState(null);
@@ -10,14 +17,16 @@ function Settings({ tutorId, onBack, onLogout }) {
     fullName: '',
     about: '',
     photoUrl: '',
-    subjectsInput: '', // comma-separated
+    subjects: [],
     hourlyRate: '',
     isPublicProfile: false,
   });
+  const [subjectInput, setSubjectInput] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const subjectInputRef = useRef(null);
 
   useEffect(() => {
     loadTutor();
@@ -32,7 +41,7 @@ function Settings({ tutorId, onBack, onLogout }) {
         fullName: tutorData.fullName || '',
         about: tutorData.about || '',
         photoUrl: tutorData.photoUrl || '',
-        subjectsInput: (tutorData.subjects || []).join(', '),
+        subjects: tutorData.subjects || [],
         hourlyRate: tutorData.hourlyRate != null ? String(tutorData.hourlyRate) : '',
         isPublicProfile: tutorData.isPublicProfile || false,
       });
@@ -47,10 +56,28 @@ function Settings({ tutorId, onBack, onLogout }) {
   };
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const addSubject = (val) => {
+    const trimmed = val.trim().replace(/,$/, '').trim();
+    if (!trimmed) return;
+    if (formData.subjects.includes(trimmed)) return;
+    setFormData(prev => ({ ...prev, subjects: [...prev.subjects, trimmed] }));
+  };
+
+  const removeSubject = (s) => {
+    setFormData(prev => ({ ...prev, subjects: prev.subjects.filter(x => x !== s) }));
+  };
+
+  const handleSubjectKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addSubject(subjectInput);
+      setSubjectInput('');
+    } else if (e.key === 'Backspace' && !subjectInput && formData.subjects.length > 0) {
+      removeSubject(formData.subjects[formData.subjects.length - 1]);
+    }
   };
 
   const handlePhotoChange = (e) => {
@@ -77,10 +104,7 @@ function Settings({ tutorId, onBack, onLogout }) {
         photoUrl = uploadResponse.data.photoUrl;
       }
 
-      const subjects = formData.subjectsInput
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean);
+      const subjects = formData.subjects;
       await tutorApi.updateTutor(tutorId, {
         fullName: formData.fullName,
         about: formData.about,
@@ -171,15 +195,42 @@ function Settings({ tutorId, onBack, onLogout }) {
           <div className="form-section">
             <h2>Профиль на платформе</h2>
             <div className="form-group">
-              <label htmlFor="subjectsInput">Предметы (через запятую)</label>
-              <input
-                type="text"
-                id="subjectsInput"
-                name="subjectsInput"
-                value={formData.subjectsInput}
-                onChange={handleChange}
-                placeholder="Математика, Физика, Программирование"
-              />
+              <label>Предметы</label>
+              <div
+                className="subjects-chip-box"
+                onClick={() => subjectInputRef.current?.focus()}
+              >
+                {formData.subjects.map(s => (
+                  <span key={s} className="subject-chip">
+                    {s}
+                    <button
+                      type="button"
+                      className="subject-chip__remove"
+                      onClick={(e) => { e.stopPropagation(); removeSubject(s); }}
+                      aria-label={`Удалить ${s}`}
+                    >×</button>
+                  </span>
+                ))}
+                <input
+                  ref={subjectInputRef}
+                  className="subjects-chip-input"
+                  value={subjectInput}
+                  onChange={e => setSubjectInput(e.target.value)}
+                  onKeyDown={handleSubjectKeyDown}
+                  onBlur={() => { if (subjectInput.trim()) { addSubject(subjectInput); setSubjectInput(''); } }}
+                  placeholder={formData.subjects.length === 0 ? 'Введите предмет, Enter или запятая' : ''}
+                />
+              </div>
+              <div className="subjects-suggestions">
+                {SUGGESTED_SUBJECTS.filter(s => !formData.subjects.includes(s)).slice(0, 12).map(s => (
+                  <button
+                    key={s}
+                    type="button"
+                    className="subject-suggestion"
+                    onClick={() => addSubject(s)}
+                  >{s}</button>
+                ))}
+              </div>
             </div>
             <div className="form-group">
               <label htmlFor="hourlyRate">Стоимость занятия (₽/час)</label>

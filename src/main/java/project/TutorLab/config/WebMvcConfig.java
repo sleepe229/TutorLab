@@ -36,6 +36,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/auth/logout",
                         "/api/students/auth/**",
                         "/api/tutors/public",
+                        "/api/tutors/*/profile",
                         "/api/chats/**",
                         "/api/join/**",
                         // Recap is UUID-protected (unguessable), no auth needed
