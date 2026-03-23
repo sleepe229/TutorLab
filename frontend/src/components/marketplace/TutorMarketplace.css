@@ -265,6 +265,11 @@
   padding: 8px 20px;
 }
 
+.mkt-card__profile {
+  font-size: 14px;
+  padding: 8px 20px;
+}
+
 .mkt-card__price-placeholder {
   font-size: 14px;
   font-weight: 600;

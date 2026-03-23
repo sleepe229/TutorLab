@@ -3,23 +3,38 @@ import toast from 'react-hot-toast';
 import { chatApi } from '../../services/api';
 import './InviteStudentModal.css';
 
+function getInitials(name = '') {
+  const parts = name.trim().split(/\s+/);
+  return parts.length >= 2 ? parts[0][0] + parts[1][0] : name.slice(0, 2).toUpperCase();
+}
+
+const AVATAR_COLORS = [
+  '#5B73F5', '#e05252', '#22c55e', '#f59e0b', '#a78bfa',
+  '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#8b5cf6',
+];
+
+function avatarColor(name = '') {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
 /**
  * Small popover near the "Пригласить ученика" button.
- * Options:
- *   1. Copy invite link  /join/{tutorId}
- *   2. Send invite in chat — pick a chat contact who is NOT yet a student of this tutor
- *
  * Props: tutorId, tutorName, students (existing), anchorRef, onClose, onStudentAdded
  */
 function InviteStudentModal({ tutorId, tutorName, students = [], anchorRef, onClose, onStudentAdded }) {
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [query, setQuery] = useState('');
   const [sending, setSending] = useState(false);
   const [copied, setCopied] = useState(false);
   const popoverRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const searchRef = useRef(null);
   const [pos, setPos] = useState({ top: 0, right: 0 });
 
-  // Position below the anchor button
   useEffect(() => {
     if (anchorRef?.current) {
       const r = anchorRef.current.getBoundingClientRect();
@@ -30,17 +45,11 @@ function InviteStudentModal({ tutorId, tutorName, students = [], anchorRef, onCl
     }
   }, [anchorRef]);
 
-  // Load chats, filter to only contacts who are NOT already a student
   useEffect(() => {
     chatApi.getTutorChats(tutorId)
       .then(r => {
-        const existingStudentAccountIds = new Set(
-          students.map(s => s.studentAccountId).filter(Boolean)
-        );
-        const nonStudentChats = (r.data || []).filter(
-          c => !existingStudentAccountIds.has(c.studentAccountId)
-        );
-        setChats(nonStudentChats);
+        const existingIds = new Set(students.map(s => s.studentAccountId).filter(Boolean));
+        setChats((r.data || []).filter(c => !existingIds.has(c.studentAccountId)));
       })
       .catch(() => {});
   }, [tutorId, students]);
@@ -59,6 +68,11 @@ function InviteStudentModal({ tutorId, tutorName, students = [], anchorRef, onCl
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose, anchorRef]);
 
+  // Focus search input when dropdown opens
+  useEffect(() => {
+    if (dropdownOpen) setTimeout(() => searchRef.current?.focus(), 0);
+  }, [dropdownOpen]);
+
   const inviteLink = `${window.location.origin}/join/${tutorId}`;
 
   const copyLink = () => {
@@ -69,8 +83,18 @@ function InviteStudentModal({ tutorId, tutorName, students = [], anchorRef, onCl
     });
   };
 
+  const filteredChats = chats.filter(c =>
+    c.studentName?.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const selectChat = (chat) => {
+    setSelectedChat(chat);
+    setDropdownOpen(false);
+    setQuery('');
+  };
+
   const sendInviteToChat = async () => {
-    if (!selectedChat) { toast.error('Выберите чат'); return; }
+    if (!selectedChat) { toast.error('Выберите собеседника'); return; }
     setSending(true);
     try {
       await chatApi.sendMessage(selectedChat.id, {
@@ -79,7 +103,7 @@ function InviteStudentModal({ tutorId, tutorName, students = [], anchorRef, onCl
         senderName: tutorName,
         text: `Приглашение присоединиться к занятиям: ${inviteLink}`,
         type: 'INVITE',
-        inviteStudentId: null,
+        inviteStudentId: tutorId,
       });
       toast.success('Приглашение отправлено');
       onClose();
@@ -127,27 +151,79 @@ function InviteStudentModal({ tutorId, tutorName, students = [], anchorRef, onCl
       <div className="invite-pop__section">
         <p className="invite-pop__label">Отправить в чат</p>
         {chats.length === 0 ? (
-          <p className="invite-pop__empty">Нет подходящих чатов<br/><span>Ссылку можно скопировать выше</span></p>
+          <p className="invite-pop__empty">Нет подходящих собеседников<br/><span>Используйте ссылку выше</span></p>
         ) : (
           <>
-            <select
-              className="invite-pop__select"
-              value={selectedChat?.id || ''}
-              onChange={e => setSelectedChat(chats.find(c => c.id === e.target.value) || null)}
-            >
-              <option value="">Выберите собеседника...</option>
-              {chats.map(c => (
-                <option key={c.id} value={c.id}>{c.studentName}</option>
-              ))}
-            </select>
-            <button
-              className="btn btn-primary"
-              style={{ marginTop: 8, width: '100%' }}
-              onClick={sendInviteToChat}
-              disabled={!selectedChat || sending}
-            >
-              {sending ? 'Отправляем...' : 'Отправить приглашение'}
-            </button>
+            {/* Custom dropdown trigger */}
+            <div className="invite-dropdown" ref={dropdownRef}>
+              <button
+                type="button"
+                className={`invite-dropdown__trigger${dropdownOpen ? ' invite-dropdown__trigger--open' : ''}`}
+                onClick={() => setDropdownOpen(v => !v)}
+              >
+                {selectedChat ? (
+                  <span className="invite-dropdown__selected">
+                    <span
+                      className="invite-dropdown__avatar"
+                      style={{ background: avatarColor(selectedChat.studentName) }}
+                    >
+                      {getInitials(selectedChat.studentName)}
+                    </span>
+                    <span className="invite-dropdown__name">{selectedChat.studentName}</span>
+                  </span>
+                ) : (
+                  <span className="invite-dropdown__placeholder">Выберите собеседника…</span>
+                )}
+                <svg className="invite-dropdown__chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+
+              {dropdownOpen && (
+                <div className="invite-dropdown__menu">
+                  <div className="invite-dropdown__search-wrap">
+                    <input
+                      ref={searchRef}
+                      className="invite-dropdown__search"
+                      placeholder="Начните вводить имя…"
+                      value={query}
+                      onChange={e => setQuery(e.target.value)}
+                    />
+                  </div>
+                  <div className="invite-dropdown__list">
+                    {filteredChats.length === 0 ? (
+                      <div className="invite-dropdown__empty">Ничего не найдено</div>
+                    ) : filteredChats.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className={`invite-dropdown__item${selectedChat?.id === c.id ? ' invite-dropdown__item--active' : ''}`}
+                        onClick={() => selectChat(c)}
+                      >
+                        <span
+                          className="invite-dropdown__avatar"
+                          style={{ background: avatarColor(c.studentName) }}
+                        >
+                          {getInitials(c.studentName)}
+                        </span>
+                        <span className="invite-dropdown__item-name">{c.studentName}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {selectedChat && (
+              <button
+                className="btn btn-primary"
+                style={{ marginTop: 10, width: '100%' }}
+                onClick={sendInviteToChat}
+                disabled={sending}
+              >
+                {sending ? 'Отправляем…' : 'Отправить приглашение'}
+              </button>
+            )}
           </>
         )}
       </div>

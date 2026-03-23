@@ -1,5 +1,6 @@
 package project.TutorLab.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 public class Tutor {
@@ -105,6 +106,7 @@ public class Tutor {
         this.hourlyRate = hourlyRate;
     }
 
+    @JsonProperty("isPublicProfile")
     public boolean isPublicProfile() {
         return isPublicProfile;
     }

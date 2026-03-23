@@ -20,7 +20,8 @@ public class SpaController {
         "/me",
         "/invite/**",
         "/join/**",
-        "/chat"
+        "/chat",
+        "/tutor/**"
     })
     public String forwardToSpa() {
         return "forward:/index.html";
