@@ -92,5 +92,17 @@ public class TutorController {
     public ResponseEntity<List<TutorResponseDto>> getPublicTutors() {
         return ResponseEntity.ok(tutorService.getPublicTutors());
     }
+
+    /** Public tutor profile — strips sensitive fields, works for any tutor ID */
+    @GetMapping("/{id}/profile")
+    public ResponseEntity<TutorResponseDto> getTutorPublicProfile(@PathVariable String id) {
+        TutorResponseDto dto = tutorService.getTutorById(id);
+        if (dto == null) return ResponseEntity.notFound().build();
+        dto.setLogin(null);
+        dto.setStudentIds(null);
+        dto.setSessionToken(null);
+        dto.setRefreshToken(null);
+        return ResponseEntity.ok(dto);
+    }
 }
 

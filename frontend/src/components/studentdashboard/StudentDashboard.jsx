@@ -37,10 +37,12 @@ function StudentDashboard({ studentAccountId, onLogout }) {
   const [pastExpanded, setPastExpanded] = useState(false);
   const [calDate, setCalDate] = useState(new Date());
   const [calTooltip, setCalTooltip] = useState(null); // { day, lessons, rect }
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsForm, setSettingsForm] = useState({ firstName: '', lastName: '', currentPassword: '', newPassword: '', confirmPassword: '' });
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState({ type: '', text: '' });
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState(null);
+  const avatarInputRef = useRef(null);
   const wsLiveRef = useRef(null);
   const calTooltipRef = useRef(null);
 
@@ -71,6 +73,7 @@ function StudentDashboard({ studentAccountId, onLogout }) {
       const meRes = await studentAccountApi.getMe(token);
       const acc = meRes.data;
       setEmail(acc.email || '');
+      if (acc.photoUrl) setPhotoUrl(acc.photoUrl);
 
       const ids = acc.linkedStudentIds || [];
       const loaded = await Promise.all(
@@ -188,6 +191,25 @@ function StudentDashboard({ studentAccountId, onLogout }) {
   const ratingHistory = useMemo(() =>
     allNotes.filter(n => n.date && n.rating).sort((a, b) => new Date(a.date) - new Date(b.date)).slice(-10)
   , [allNotes]);
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const url = await studentApi.uploadPhoto(file);
+      if (url) {
+        await studentAccountApi.updatePhoto(token, url);
+        setPhotoUrl(url);
+        toast.success('Аватар обновлён');
+      }
+    } catch {
+      toast.error('Не удалось загрузить фото');
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = '';
+    }
+  };
 
   const handleSettingsSave = async () => {
     const { firstName: fn, lastName: ln, currentPassword, newPassword, confirmPassword } = settingsForm;
@@ -330,6 +352,7 @@ function StudentDashboard({ studentAccountId, onLogout }) {
               { key: 'home', label: 'Кабинет' },
               { key: 'schedule', label: 'Расписание' },
               { key: 'progress', label: 'Прогресс' },
+              { key: 'settings', label: 'Настройки' },
             ].map(t => (
               <button
                 key={t.key}
@@ -390,9 +413,10 @@ function StudentDashboard({ studentAccountId, onLogout }) {
           <>
             {/* Account card */}
             <div className="sd-account-card">
-              <div className="sd-avatar-placeholder sd-avatar-lg">
-                {initials || '?'}
-              </div>
+              {photoUrl
+                ? <img src={photoUrl.startsWith('/api/') ? `${API_BASE}${photoUrl}` : photoUrl} alt={displayName} className="sd-avatar-photo sd-avatar-lg" />
+                : <div className="sd-avatar-placeholder sd-avatar-lg">{initials || '?'}</div>
+              }
               <div className="sd-account-info">
                 <p className="sd-profile-name">{displayName || 'Студент'}</p>
                 {email && <p className="sd-profile-email">{email}</p>}
@@ -452,7 +476,7 @@ function StudentDashboard({ studentAccountId, onLogout }) {
                       const isLive = liveSession?.tutorId === p.tutorId;
                       const upcoming = parseLessons(p).filter(l => parseLocalDate(l.date) >= today);
                       return (
-                        <div key={p.id} className={`sd-tutor-chip${isLive ? ' sd-tutor-chip--live' : ''}`}>
+                        <div key={p.id} className={`sd-tutor-chip${isLive ? ' sd-tutor-chip--live' : ''}`} onClick={() => navigate(`/tutor/${p.tutorId}`)} style={{ cursor: 'pointer' }}>
                           <div className="sd-tutor-chip-avatar">
                             {p.tutorName?.charAt(0) || '?'}
                           </div>
@@ -479,83 +503,106 @@ function StudentDashboard({ studentAccountId, onLogout }) {
               </>
             )}
 
-            {/* Settings section */}
-            <section className="sd-section sd-settings-section">
-              <button
-                className="sd-settings-toggle"
-                onClick={() => { setSettingsOpen(v => !v); setSettingsMsg({ type: '', text: '' }); }}
-                type="button"
-              >
-                Настройки аккаунта {settingsOpen ? '▲' : '▼'}
-              </button>
-              {settingsOpen && (
-                <div className="sd-settings-form">
-                  <div className="sd-settings-row">
-                    <label className="sd-settings-label">Имя</label>
-                    <input
-                      className="sd-settings-input"
-                      type="text"
-                      placeholder={firstName || 'Имя'}
-                      value={settingsForm.firstName}
-                      onChange={e => setSettingsForm(p => ({ ...p, firstName: e.target.value }))}
-                    />
-                  </div>
-                  <div className="sd-settings-row">
-                    <label className="sd-settings-label">Фамилия</label>
-                    <input
-                      className="sd-settings-input"
-                      type="text"
-                      placeholder={lastName || 'Фамилия'}
-                      value={settingsForm.lastName}
-                      onChange={e => setSettingsForm(p => ({ ...p, lastName: e.target.value }))}
-                    />
-                  </div>
-                  <div className="sd-settings-divider">Изменить пароль</div>
-                  <div className="sd-settings-row">
-                    <label className="sd-settings-label">Текущий пароль</label>
-                    <input
-                      className="sd-settings-input"
-                      type="password"
-                      placeholder="••••••••"
-                      value={settingsForm.currentPassword}
-                      onChange={e => setSettingsForm(p => ({ ...p, currentPassword: e.target.value }))}
-                    />
-                  </div>
-                  <div className="sd-settings-row">
-                    <label className="sd-settings-label">Новый пароль</label>
-                    <input
-                      className="sd-settings-input"
-                      type="password"
-                      placeholder="Минимум 8 символов"
-                      value={settingsForm.newPassword}
-                      onChange={e => setSettingsForm(p => ({ ...p, newPassword: e.target.value }))}
-                    />
-                  </div>
-                  <div className="sd-settings-row">
-                    <label className="sd-settings-label">Повторите пароль</label>
-                    <input
-                      className="sd-settings-input"
-                      type="password"
-                      placeholder="••••••••"
-                      value={settingsForm.confirmPassword}
-                      onChange={e => setSettingsForm(p => ({ ...p, confirmPassword: e.target.value }))}
-                    />
-                  </div>
-                  {settingsMsg.text && (
-                    <p className={`sd-settings-msg sd-settings-msg--${settingsMsg.type}`}>{settingsMsg.text}</p>
-                  )}
-                  <button
-                    className="btn btn-primary sd-settings-save"
-                    onClick={handleSettingsSave}
-                    disabled={settingsLoading}
-                    type="button"
-                  >
-                    {settingsLoading ? 'Сохранение...' : 'Сохранить'}
-                  </button>
+          </>
+        ) : activeTab === 'settings' ? (
+          /* ── Settings tab ── */
+          <div className="sd-settings-page">
+            <div className="sd-greeting">
+              <h1>Настройки</h1>
+              <p className="sd-greeting-sub">Управление профилем и безопасностью</p>
+            </div>
+
+            {/* Avatar section */}
+            <div className="sd-settings-avatar-section">
+              <div className="sd-settings-avatar-wrap">
+                {photoUrl
+                  ? <img src={photoUrl.startsWith('/api/') ? `${API_BASE}${photoUrl}` : photoUrl} alt="Аватар" className="sd-settings-avatar-img" />
+                  : <div className="sd-settings-avatar-ph">{initials || '?'}</div>
+                }
+                <button
+                  className="sd-settings-avatar-btn"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  type="button"
+                >
+                  {avatarUploading ? 'Загрузка...' : 'Изменить фото'}
+                </button>
+                <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarUpload} />
+              </div>
+            </div>
+
+            {/* Name / password form */}
+            <div className="sd-settings-form sd-settings-form--page">
+              <div className="sd-settings-row">
+                <label className="sd-settings-label">Имя</label>
+                <input
+                  className="sd-settings-input"
+                  type="text"
+                  placeholder={firstName || 'Имя'}
+                  value={settingsForm.firstName}
+                  onChange={e => setSettingsForm(p => ({ ...p, firstName: e.target.value }))}
+                />
+              </div>
+              <div className="sd-settings-row">
+                <label className="sd-settings-label">Фамилия</label>
+                <input
+                  className="sd-settings-input"
+                  type="text"
+                  placeholder={lastName || 'Фамилия'}
+                  value={settingsForm.lastName}
+                  onChange={e => setSettingsForm(p => ({ ...p, lastName: e.target.value }))}
+                />
+              </div>
+              {email && (
+                <div className="sd-settings-row">
+                  <label className="sd-settings-label">Email</label>
+                  <input className="sd-settings-input" type="text" value={email} readOnly style={{ opacity: 0.6 }} />
                 </div>
               )}
-            </section>
-          </>
+              <div className="sd-settings-divider">Изменить пароль</div>
+              <div className="sd-settings-row">
+                <label className="sd-settings-label">Текущий пароль</label>
+                <input
+                  className="sd-settings-input"
+                  type="password"
+                  placeholder="••••••••"
+                  value={settingsForm.currentPassword}
+                  onChange={e => setSettingsForm(p => ({ ...p, currentPassword: e.target.value }))}
+                />
+              </div>
+              <div className="sd-settings-row">
+                <label className="sd-settings-label">Новый пароль</label>
+                <input
+                  className="sd-settings-input"
+                  type="password"
+                  placeholder="Минимум 8 символов"
+                  value={settingsForm.newPassword}
+                  onChange={e => setSettingsForm(p => ({ ...p, newPassword: e.target.value }))}
+                />
+              </div>
+              <div className="sd-settings-row">
+                <label className="sd-settings-label">Повторите пароль</label>
+                <input
+                  className="sd-settings-input"
+                  type="password"
+                  placeholder="••••••••"
+                  value={settingsForm.confirmPassword}
+                  onChange={e => setSettingsForm(p => ({ ...p, confirmPassword: e.target.value }))}
+                />
+              </div>
+              {settingsMsg.text && (
+                <p className={`sd-settings-msg sd-settings-msg--${settingsMsg.type}`}>{settingsMsg.text}</p>
+              )}
+              <button
+                className="btn btn-primary sd-settings-save"
+                onClick={handleSettingsSave}
+                disabled={settingsLoading}
+                type="button"
+              >
+                {settingsLoading ? 'Сохранение...' : 'Сохранить'}
+              </button>
+            </div>
+          </div>
         ) : activeTab === 'schedule' ? (
           /* ── Schedule tab — Calendar ── */
           <div className="sd-schedule">

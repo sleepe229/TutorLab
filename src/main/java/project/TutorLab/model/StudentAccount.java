@@ -8,6 +8,7 @@ public class StudentAccount {
     private String lastName;
     /** IDs of tutor-created Student records this account is linked to (one per tutor) */
     private java.util.List<String> linkedStudentIds = new java.util.ArrayList<>();
+    private String photoUrl;
 
     public StudentAccount() {}
 
@@ -41,4 +42,7 @@ public class StudentAccount {
     public void setLinkedStudentIds(java.util.List<String> linkedStudentIds) {
         this.linkedStudentIds = linkedStudentIds;
     }
+
+    public String getPhotoUrl() { return photoUrl; }
+    public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
 }

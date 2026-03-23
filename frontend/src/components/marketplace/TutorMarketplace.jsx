@@ -205,7 +205,7 @@ function TutorMarketplace({ studentAccountId }) {
               {filtered.map(tutor => {
                 const photo = getPhotoUrl(tutor.photoUrl);
                 return (
-                  <div key={tutor.id} className="mkt-card">
+                  <div key={tutor.id} className="mkt-card" onClick={() => navigate(`/tutor/${tutor.id}`)} style={{ cursor: 'pointer' }}>
                     <div className="mkt-card__header">
                       {photo
                         ? <img
@@ -238,7 +238,7 @@ function TutorMarketplace({ studentAccountId }) {
                       <p className="mkt-card__about">{tutor.about}</p>
                     )}
 
-                    <div className="mkt-card__actions">
+                    <div className="mkt-card__actions" onClick={e => e.stopPropagation()}>
                       <button
                         className="btn btn-primary mkt-card__contact"
                         onClick={async () => {
@@ -259,13 +259,9 @@ function TutorMarketplace({ studentAccountId }) {
                       >
                         Написать
                       </button>
-                      <div className="mkt-card__price-placeholder">
-                        {tutor.hourlyRate != null ? (
-                          <span>от {tutor.hourlyRate} ₽</span>
-                        ) : (
-                          <span className="mkt-card__price-free">Цена договорная</span>
-                        )}
-                      </div>
+                      <button className="btn btn-secondary mkt-card__profile" onClick={() => navigate(`/tutor/${tutor.id}`)}>
+                        Подробнее
+                      </button>
                     </div>
                   </div>
                 );

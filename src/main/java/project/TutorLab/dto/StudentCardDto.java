@@ -10,6 +10,7 @@ public class StudentCardDto {
     private String photoUrl;
     private Boolean isFavorite;
     private List<String> lessonDates;
+    private String studentAccountId;
 
     public StudentCardDto() {
     }
@@ -77,5 +78,8 @@ public class StudentCardDto {
     public void setLessonDates(List<String> lessonDates) {
         this.lessonDates = lessonDates;
     }
+
+    public String getStudentAccountId() { return studentAccountId; }
+    public void setStudentAccountId(String studentAccountId) { this.studentAccountId = studentAccountId; }
 }
 
