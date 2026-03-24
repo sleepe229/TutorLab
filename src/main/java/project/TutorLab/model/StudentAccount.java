@@ -1,5 +1,8 @@
 package project.TutorLab.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class StudentAccount {
     private String id;
     private String email;
