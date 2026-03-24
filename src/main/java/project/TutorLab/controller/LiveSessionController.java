@@ -141,6 +141,17 @@ public class LiveSessionController {
             @RequestParam("file") MultipartFile file,
             jakarta.servlet.http.HttpServletRequest request) throws IOException {
 
+        // This path is excluded from AuthInterceptor (so GET stays public for students).
+        // POST must validate the tutor token manually.
+        String token = request.getHeader("X-Session-Token");
+        if (token == null || !jwtService.isTokenValid(token)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!"TUTOR".equals(jwtService.extractRole(token))) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        String authenticatedTutorId = jwtService.extractTutorId(token);
+
         String contentType = file.getContentType();
         if (contentType == null || !contentType.equals("application/pdf")) {
             return ResponseEntity.badRequest().build();
@@ -151,8 +162,7 @@ public class LiveSessionController {
             return ResponseEntity.notFound().build();
         }
 
-        String authenticatedTutorId = (String) request.getAttribute("tutorId");
-        if (authenticatedTutorId == null || !authenticatedTutorId.equals(session.getTutorId())) {
+        if (!authenticatedTutorId.equals(session.getTutorId())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
