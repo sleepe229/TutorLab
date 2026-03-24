@@ -1,5 +1,6 @@
 package project.TutorLab.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -15,6 +16,7 @@ import java.util.List;
  *  - Retry: attemptCount tracks how many generation attempts occurred.
  *    If generationFailed=true, the record is eligible for manual re-trigger.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class LessonRecap implements Serializable {
 
     private String snapshotId;

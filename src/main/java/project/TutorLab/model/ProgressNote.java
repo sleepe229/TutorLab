@@ -1,5 +1,6 @@
 package project.TutorLab.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -8,6 +9,7 @@ import java.util.List;
  * Tutor-authored qualitative progress note embedded in Student.
  * Embedded in student:{studentId} — no separate Redis key.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ProgressNote implements Serializable {
 
     private String id;
