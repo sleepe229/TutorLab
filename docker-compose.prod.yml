@@ -28,6 +28,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: prod
