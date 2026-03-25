@@ -15,8 +15,10 @@ RUN npm ci --silent
 COPY frontend/ .
 ARG VITE_API_URL=
 ARG VITE_WS_URL=
+ARG VITE_GOOGLE_CLIENT_ID=
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_WS_URL=$VITE_WS_URL
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 RUN npx vite build
 
 # ── Stage 3: Runtime ─────────────────────────────────────────────────────────
