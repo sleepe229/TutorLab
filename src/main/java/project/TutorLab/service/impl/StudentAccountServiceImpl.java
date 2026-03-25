@@ -17,6 +17,7 @@ import project.TutorLab.repository.SessionSnapshotRepository;
 import project.TutorLab.repository.StudentAccountRepository;
 import project.TutorLab.repository.StudentRepository;
 import project.TutorLab.repository.TutorRepository;
+import project.TutorLab.service.GoogleAuthService;
 import project.TutorLab.service.StudentAccountService;
 
 import java.util.ArrayList;
@@ -55,6 +56,9 @@ public class StudentAccountServiceImpl implements StudentAccountService {
 
     @Autowired
     private TutorRepository tutorRepository;
+
+    @Autowired
+    private GoogleAuthService googleAuthService;
 
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
 
@@ -220,6 +224,39 @@ public class StudentAccountServiceImpl implements StudentAccountService {
         Map<String, Object> result = new HashMap<>();
         result.put("photoUrl", account.getPhotoUrl());
         return result;
+    }
+
+    @Override
+    public Map<String, Object> googleAuth(String idToken) {
+        GoogleAuthService.GoogleUserInfo info = googleAuthService.verify(idToken);
+
+        // 1. Look up by Google sub
+        StudentAccount account = accountRepository.findByGoogleId(info.sub());
+
+        // 2. Fall back to email lookup (link existing password-based account)
+        if (account == null && info.email() != null) {
+            account = accountRepository.findByEmail(info.email().toLowerCase());
+        }
+
+        // 3. Create new account
+        if (account == null) {
+            String firstName = info.firstName() != null ? info.firstName()
+                : (info.fullName() != null ? info.fullName() : "");
+            account = new StudentAccount(
+                UUID.randomUUID().toString(),
+                info.email() != null ? info.email().toLowerCase() : info.sub() + "@google",
+                null,  // no password for OAuth accounts
+                firstName,
+                info.lastName()
+            );
+            if (info.pictureUrl() != null) account.setPhotoUrl(info.pictureUrl());
+        }
+
+        // 4. Attach Google ID if not already set
+        if (account.getGoogleId() == null) account.setGoogleId(info.sub());
+
+        accountRepository.save(account);
+        return buildResponse(account);
     }
 
     private Map<String, Object> buildResponse(StudentAccount account) {

@@ -11,6 +11,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@better-auth/infra": "^0.1.13",
+    "@react-oauth/google": "^0.13.4",
     "axios": "^1.13.5",
     "events": "^3.3.0",
     "react": "^18.2.0",

@@ -60,6 +60,7 @@ function LiveLessonTeacher({ tutorId }) {
   const clientRef = useRef(null);
   const isDrawingRef = useRef(false);
   const pathIdRef = useRef(null);
+  const lastDrawPointRef = useRef(null);
 
   // Keep latest values inside event listeners without stale closures
   const toolRef = useRef(tool);
@@ -158,7 +159,7 @@ function LiveLessonTeacher({ tutorId }) {
       const res = await api.get(`/live/sessions/${session.sessionId}/slides/${slideIndex}/drawings`);
       const ctx = canvasRef.current.getContext('2d');
       ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      ctx.currentPaths = {};
+      ctx.activePaths = {};
       res.data.forEach((path) => {
         if (!path.points?.length) return;
         ctx.strokeStyle = path.color;
@@ -174,7 +175,7 @@ function LiveLessonTeacher({ tutorId }) {
       if (canvasRef.current) {
         const ctx = canvasRef.current.getContext('2d');
         ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-        ctx.currentPaths = {};
+        ctx.activePaths = {};
       }
     }
   };
@@ -290,27 +291,25 @@ function LiveLessonTeacher({ tutorId }) {
     const { x, y } = getCanvasCoords(e.clientX, e.clientY);
     isDrawingRef.current = true;
     pathIdRef.current = `path-${Date.now()}-${Math.random()}`;
+    lastDrawPointRef.current = { x, y };
 
     const ctx = canvasRef.current.getContext('2d');
+    const isEraser = toolRef.current === 'eraser';
+    ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+    ctx.lineWidth = isEraser ? lineWidthRef.current * 6 : lineWidthRef.current;
 
-    if (toolRef.current === 'eraser') {
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.lineWidth = lineWidthRef.current * 6;
-    } else {
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.strokeStyle = colorRef.current;
-      ctx.lineWidth = lineWidthRef.current;
-    }
-
+    // Draw starting dot so single-click marks are visible
     ctx.beginPath();
-    ctx.moveTo(x, y);
+    ctx.arc(x, y, ctx.lineWidth / 2, 0, Math.PI * 2);
+    if (!isEraser) { ctx.fillStyle = colorRef.current; }
+    ctx.fill();
 
     clientRef.current?.sendDraw({
       pathId: pathIdRef.current, x, y,
-      color: toolRef.current === 'eraser' ? 'eraser' : colorRef.current,
-      width: toolRef.current === 'eraser' ? lineWidthRef.current * 6 : lineWidthRef.current,
+      color: isEraser ? 'eraser' : colorRef.current,
+      width: ctx.lineWidth,
       end: false,
     });
   };
@@ -324,15 +323,28 @@ function LiveLessonTeacher({ tutorId }) {
       return;
     }
     if (!isDrawingRef.current) return;
+    const last = lastDrawPointRef.current;
+    if (!last) return;
 
     const ctx = canvasRef.current.getContext('2d');
+    const isEraser = toolRef.current === 'eraser';
+    ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
+    if (!isEraser) ctx.strokeStyle = colorRef.current;
+    ctx.lineWidth = isEraser ? lineWidthRef.current * 6 : lineWidthRef.current;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    ctx.beginPath();
+    ctx.moveTo(last.x, last.y);
     ctx.lineTo(x, y);
     ctx.stroke();
 
+    lastDrawPointRef.current = { x, y };
+
     clientRef.current?.sendDraw({
       pathId: pathIdRef.current, x, y,
-      color: toolRef.current === 'eraser' ? 'eraser' : colorRef.current,
-      width: toolRef.current === 'eraser' ? lineWidthRef.current * 6 : lineWidthRef.current,
+      color: isEraser ? 'eraser' : colorRef.current,
+      width: ctx.lineWidth,
       end: false,
     });
   };
@@ -340,6 +352,7 @@ function LiveLessonTeacher({ tutorId }) {
   const handleCanvasMouseUp = () => {
     if (!isDrawingRef.current) return;
     isDrawingRef.current = false;
+    lastDrawPointRef.current = null;
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx) ctx.globalCompositeOperation = 'source-over';
     clientRef.current?.sendDraw({
@@ -369,31 +382,35 @@ function LiveLessonTeacher({ tutorId }) {
     if (!canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d');
     if (data.end) {
-      if (ctx.currentPaths) delete ctx.currentPaths[data.pathId];
+      if (ctx.activePaths) delete ctx.activePaths[data.pathId];
       ctx.globalCompositeOperation = 'source-over';
       return;
     }
     if (!data.pathId) return;
-    if (!ctx.currentPaths) ctx.currentPaths = {};
+    if (!ctx.activePaths) ctx.activePaths = {};
 
     const isEraser = data.color === 'eraser';
-    if (!ctx.currentPaths[data.pathId]) {
-      ctx.currentPaths[data.pathId] = true;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
-      if (!isEraser) ctx.strokeStyle = data.color;
-      ctx.lineWidth = data.width;
+    ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
+    if (!isEraser) ctx.strokeStyle = data.color;
+    ctx.lineWidth = data.width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const last = ctx.activePaths[data.pathId];
+    if (!last) {
+      // First point: draw a dot so single-click marks are visible
+      ctx.activePaths[data.pathId] = { x: data.x, y: data.y };
       ctx.beginPath();
-      ctx.moveTo(data.x, data.y);
+      ctx.arc(data.x, data.y, data.width / 2, 0, Math.PI * 2);
+      if (!isEraser) ctx.fillStyle = data.color;
+      ctx.fill();
     } else {
-      ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
-      if (!isEraser) ctx.strokeStyle = data.color;
-      ctx.lineWidth = data.width;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+      // Subsequent points: self-contained segment — no shared path state
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
       ctx.lineTo(data.x, data.y);
       ctx.stroke();
+      ctx.activePaths[data.pathId] = { x: data.x, y: data.y };
     }
   };
 
@@ -401,7 +418,7 @@ function LiveLessonTeacher({ tutorId }) {
     if (!canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d');
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    ctx.currentPaths = {};
+    ctx.activePaths = {};
   };
 
   const handleClearDrawings = () => {

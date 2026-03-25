@@ -19,6 +19,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .excludePathPatterns(
                         "/api/tutors/register",
                         "/api/tutors/login",
+                        "/api/tutors/auth/google",
                         "/api/tutors/*/exists",
                         "/api/tutors/login/*/exists",
                         "/api/live/sessions/*",

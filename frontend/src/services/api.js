@@ -45,6 +45,12 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
+      // Auth endpoints return 401 for wrong credentials — not a token expiry, skip refresh
+      const url = originalRequest.url || '';
+      if (url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/tutors/login') || url.includes('/tutors/register')) {
+        return Promise.reject(error);
+      }
+
       // Student request (carries X-Student-Token) → try student token refresh
       if (originalRequest.headers?.['X-Student-Token']) {
         const studentRefreshToken = localStorage.getItem('studentRefreshToken');
@@ -137,6 +143,7 @@ api.interceptors.response.use(
 export const tutorApi = {
   register: (data) => api.post('/tutors/register', data),
   login: (data) => api.post('/tutors/login', data),
+  googleAuth: (accessToken) => api.post('/tutors/auth/google', { accessToken }),
   getTutor: (id) => api.get(`/tutors/${id}`),
   updateTutor: (id, data) => api.put(`/tutors/${id}`, data),
   tutorExists: (id) => api.get(`/tutors/${id}/exists`),
@@ -193,6 +200,8 @@ export const studentApi = {
 export const chatApi = {
   getOrCreate: (tutorId, studentAccountId, studentName) =>
     api.post('/chats', { tutorId, studentAccountId, studentName }),
+  getOrCreateAsStudent: (tutorId, studentAccountId, studentName, token) =>
+    api.post('/chats', { tutorId, studentAccountId, studentName }, { headers: { 'X-Student-Token': token } }),
   getTutorChats: (tutorId) => api.get(`/chats/tutor/${tutorId}`),
   getStudentChats: (studentAccountId, token) =>
     api.get(`/chats/student/${studentAccountId}`, { headers: { 'X-Student-Token': token } }),
@@ -212,6 +221,7 @@ export const chatApi = {
 export const studentAccountApi = {
   register: (data) => api.post('/students/auth/register', data),
   login: (data) => api.post('/students/auth/login', data),
+  googleAuth: (accessToken) => api.post('/students/auth/google', { accessToken }),
   refresh: (refreshToken) => api.post('/students/auth/refresh', { refreshToken }),
   logout: (refreshToken) => api.post('/students/auth/logout', { refreshToken }),
   getMe: (token) => api.get('/students/auth/me', { headers: { 'X-Student-Token': token } }),

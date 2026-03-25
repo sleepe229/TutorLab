@@ -18,6 +18,8 @@ public class Tutor {
     private List<String> subjects;
     private Integer hourlyRate;
     private boolean isPublicProfile;
+    private String googleId;   // Google OAuth sub (nullable)
+    private String email;      // Email, populated for Google OAuth accounts (nullable)
 
     public Tutor() {
     }
@@ -117,5 +119,21 @@ public class Tutor {
     @JsonAlias("publicProfile")
     public void setPublicProfile(boolean publicProfile) {
         isPublicProfile = publicProfile;
+    }
+
+    public String getGoogleId() {
+        return googleId;
+    }
+
+    public void setGoogleId(String googleId) {
+        this.googleId = googleId;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 }

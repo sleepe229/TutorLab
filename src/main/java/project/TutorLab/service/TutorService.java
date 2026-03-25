@@ -15,5 +15,7 @@ public interface TutorService {
     boolean tutorExists(String id);
     boolean loginExists(String login);
     List<TutorResponseDto> getPublicTutors();
+
+    TutorResponseDto googleAuth(String idToken);
 }
 
