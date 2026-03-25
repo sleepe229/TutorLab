@@ -61,6 +61,20 @@ public class StudentAuthController {
         }
     }
 
+    @PostMapping("/google")
+    public ResponseEntity<?> googleAuth(@RequestBody Map<String, String> body) {
+        String accessToken = body.get("accessToken");
+        if (accessToken == null || accessToken.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "accessToken is required"));
+        }
+        try {
+            return ResponseEntity.ok(studentAccountService.googleAuth(accessToken));
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode())
+                .body(Map.of("error", e.getReason() != null ? e.getReason() : "Google auth failed"));
+        }
+    }
+
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> body, HttpServletRequest request) {
         authRateLimiter.checkLoginLimit(request);

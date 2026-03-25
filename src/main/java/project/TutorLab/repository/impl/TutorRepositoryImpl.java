@@ -18,6 +18,8 @@ public class TutorRepositoryImpl implements TutorRepository {
 
     private static final String TUTOR_KEY_PREFIX = "tutor:";
     private static final String TUTOR_LOGIN_INDEX_PREFIX = "tutor:login:";
+    private static final String TUTOR_GOOGLE_INDEX_PREFIX = "tutor:google:";
+    private static final String TUTOR_EMAIL_INDEX_PREFIX = "tutor:email:";
     private static final String TUTOR_PUBLIC_INDEX = "tutor:public";
 
     @Value("${app.tutor.ttl-days:30}")
@@ -35,21 +37,33 @@ public class TutorRepositoryImpl implements TutorRepository {
         Tutor existingTutor = findById(tutor.getId());
         
         // Если логин изменился, удаляем старый индекс
-        if (existingTutor != null && existingTutor.getLogin() != null 
+        if (existingTutor != null && existingTutor.getLogin() != null
             && !existingTutor.getLogin().equals(tutor.getLogin())) {
             String oldLoginIndexKey = TUTOR_LOGIN_INDEX_PREFIX + existingTutor.getLogin();
             redisTemplate.delete(oldLoginIndexKey);
         }
-        
+
         String key = TUTOR_KEY_PREFIX + tutor.getId();
         redisTemplate.opsForValue().set(key, tutor, ttlDays, TimeUnit.DAYS);
-        
+
         // Создаем/обновляем индекс для поиска по логину
         if (tutor.getLogin() != null && !tutor.getLogin().isEmpty()) {
             String loginIndexKey = TUTOR_LOGIN_INDEX_PREFIX + tutor.getLogin();
             redisTemplate.opsForValue().set(loginIndexKey, tutor.getId(), ttlDays, TimeUnit.DAYS);
         }
-        
+
+        // Google OAuth index
+        if (tutor.getGoogleId() != null && !tutor.getGoogleId().isBlank()) {
+            redisTemplate.opsForValue().set(
+                TUTOR_GOOGLE_INDEX_PREFIX + tutor.getGoogleId(), tutor.getId(), ttlDays, TimeUnit.DAYS);
+        }
+
+        // Email index (for OAuth accounts)
+        if (tutor.getEmail() != null && !tutor.getEmail().isBlank()) {
+            redisTemplate.opsForValue().set(
+                TUTOR_EMAIL_INDEX_PREFIX + tutor.getEmail().toLowerCase(), tutor.getId(), ttlDays, TimeUnit.DAYS);
+        }
+
         // Maintain public profile index
         if (tutor.isPublicProfile()) {
             redisTemplate.opsForSet().add(TUTOR_PUBLIC_INDEX, tutor.getId());
@@ -80,13 +94,18 @@ public class TutorRepositoryImpl implements TutorRepository {
     @Override
     public void deleteById(String id) {
         Tutor tutor = findById(id);
-        if (tutor != null && tutor.getLogin() != null) {
-            // Удаляем индекс логина
-            String loginIndexKey = TUTOR_LOGIN_INDEX_PREFIX + tutor.getLogin();
-            redisTemplate.delete(loginIndexKey);
+        if (tutor != null) {
+            if (tutor.getLogin() != null) {
+                redisTemplate.delete(TUTOR_LOGIN_INDEX_PREFIX + tutor.getLogin());
+            }
+            if (tutor.getGoogleId() != null) {
+                redisTemplate.delete(TUTOR_GOOGLE_INDEX_PREFIX + tutor.getGoogleId());
+            }
+            if (tutor.getEmail() != null) {
+                redisTemplate.delete(TUTOR_EMAIL_INDEX_PREFIX + tutor.getEmail().toLowerCase());
+            }
         }
-        String key = TUTOR_KEY_PREFIX + id;
-        redisTemplate.delete(key);
+        redisTemplate.delete(TUTOR_KEY_PREFIX + id);
     }
 
     @Override
@@ -118,6 +137,20 @@ public class TutorRepositoryImpl implements TutorRepository {
     @Override
     public boolean existsByLogin(String login) {
         return findByLogin(login) != null;
+    }
+
+    @Override
+    public Tutor findByGoogleId(String googleId) {
+        Object idVal = redisTemplate.opsForValue().get(TUTOR_GOOGLE_INDEX_PREFIX + googleId);
+        if (idVal == null) return null;
+        return findById(idVal.toString());
+    }
+
+    @Override
+    public Tutor findByEmail(String email) {
+        Object idVal = redisTemplate.opsForValue().get(TUTOR_EMAIL_INDEX_PREFIX + email.toLowerCase());
+        if (idVal == null) return null;
+        return findById(idVal.toString());
     }
 
     @Override

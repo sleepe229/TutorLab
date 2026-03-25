@@ -12,6 +12,7 @@ public class StudentAccount {
     /** IDs of tutor-created Student records this account is linked to (one per tutor) */
     private java.util.List<String> linkedStudentIds = new java.util.ArrayList<>();
     private String photoUrl;
+    private String googleId;   // Google OAuth sub (nullable)
 
     public StudentAccount() {}
 
@@ -48,4 +49,7 @@ public class StudentAccount {
 
     public String getPhotoUrl() { return photoUrl; }
     public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
+
+    public String getGoogleId() { return googleId; }
+    public void setGoogleId(String googleId) { this.googleId = googleId; }
 }

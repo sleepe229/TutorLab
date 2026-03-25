@@ -46,6 +46,7 @@ services:
       APP_JWT_SECRET: ${JWT_SECRET:-LocalTestSecretKeyForJWTSigningMustBe256BitsLong!}
       APP_UPLOAD_DIR: /app/uploads
       APP_UPLOAD_MATERIALS_DIR: /app/uploads/materials
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       JAVA_OPTS: "-Xms128m -Xmx256m"
       JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true"
     volumes:
