@@ -46,14 +46,21 @@
   flex: 1;
 }
 
-.site-footer__links a {
+.site-footer__links a,
+.site-footer__links button {
   font-size: 13px;
   color: var(--text-secondary, #8b949e);
   text-decoration: none;
   transition: color 0.15s;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
 }
 
-.site-footer__links a:hover {
+.site-footer__links a:hover,
+.site-footer__links button:hover {
   color: var(--text-primary, #e6edf3);
 }
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { studentAccountApi } from '../../services/api';
+import { studentAccountApi, studentApi, chatApi } from '../../services/api';
 import RegistrationChat from '../registration/RegistrationChat';
 
 function InviteHandler({ studentAccountId }) {
@@ -9,12 +9,32 @@ function InviteHandler({ studentAccountId }) {
   const navigate = useNavigate();
   const [status, setStatus] = useState('idle'); // 'idle' | 'linking' | 'done' | 'already' | 'error'
 
-  const doLink = async (token) => {
+  const sendWelcomeMessage = async (token, accountId, name) => {
+    try {
+      const { data: profile } = await studentApi.getStudentPublic(studentId);
+      if (!profile?.tutorId) return;
+      const { data: chat } = await chatApi.getOrCreateAsStudent(
+        profile.tutorId, accountId, name, token
+      );
+      await chatApi.sendMessage(chat.id, {
+        senderRole: 'STUDENT',
+        senderName: name,
+        text: `${name} стал Вашим учеником`,
+        type: 'system',
+      }, token);
+    } catch { /* non-critical */ }
+  };
+
+  const doLink = async (token, accountId) => {
     setStatus('linking');
     try {
       await studentAccountApi.link(token, studentId);
       localStorage.setItem('linkedStudentId', studentId);
       setStatus('done');
+      const firstName = localStorage.getItem('studentFirstName') || '';
+      const lastName = localStorage.getItem('studentLastName') || '';
+      const name = `${firstName} ${lastName}`.trim() || 'Ученик';
+      sendWelcomeMessage(token, accountId, name);
     } catch (err) {
       if (err?.response?.status === 409) {
         setStatus('already');
@@ -28,7 +48,7 @@ function InviteHandler({ studentAccountId }) {
   useEffect(() => {
     if (studentAccountId) {
       const token = localStorage.getItem('studentToken');
-      if (token) doLink(token);
+      if (token) doLink(token, studentAccountId);
     }
   }, [studentAccountId]);
 
@@ -117,6 +137,10 @@ function InviteHandler({ studentAccountId }) {
         await studentAccountApi.link(accessToken, studentId);
         localStorage.setItem('linkedStudentId', studentId);
         toast.success('Вы добавлены как ученик!');
+        const firstName = data.firstName || '';
+        const lastName = data.lastName || '';
+        const name = `${firstName} ${lastName}`.trim() || 'Ученик';
+        sendWelcomeMessage(accessToken, sid, name);
       } catch { /* already linked or error — still proceed */ }
     }
     // Hard-navigate so App re-mounts with localStorage values, avoiding React state race

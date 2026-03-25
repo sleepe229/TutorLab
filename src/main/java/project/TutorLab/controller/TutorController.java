@@ -50,6 +50,21 @@ public class TutorController {
         }
     }
 
+    @PostMapping("/auth/google")
+    public ResponseEntity<?> googleAuth(@RequestBody java.util.Map<String, String> body) {
+        String accessToken = body.get("accessToken");
+        if (accessToken == null || accessToken.isBlank()) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("error", "accessToken is required"));
+        }
+        try {
+            TutorResponseDto response = tutorService.googleAuth(accessToken);
+            return ResponseEntity.ok(response);
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode())
+                .body(java.util.Map.of("error", e.getReason() != null ? e.getReason() : "Google auth failed"));
+        }
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<TutorResponseDto> getTutor(@PathVariable String id) {
         TutorResponseDto tutor = tutorService.getTutorById(id);

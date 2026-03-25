@@ -239,31 +239,35 @@ function LiveLessonStudent() {
     if (!canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d');
     if (data.end) {
-      if (ctx.currentPaths) delete ctx.currentPaths[data.pathId];
+      if (ctx.activePaths) delete ctx.activePaths[data.pathId];
       ctx.globalCompositeOperation = 'source-over';
       return;
     }
     if (!data.pathId) return;
-    if (!ctx.currentPaths) ctx.currentPaths = {};
+    if (!ctx.activePaths) ctx.activePaths = {};
 
     const isEraser = data.color === 'eraser';
-    if (!ctx.currentPaths[data.pathId]) {
-      ctx.currentPaths[data.pathId] = true;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
-      if (!isEraser) ctx.strokeStyle = data.color;
-      ctx.lineWidth = data.width;
+    ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
+    if (!isEraser) ctx.strokeStyle = data.color;
+    ctx.lineWidth = data.width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const last = ctx.activePaths[data.pathId];
+    if (!last) {
+      // First point: draw a dot so single-click marks are visible
+      ctx.activePaths[data.pathId] = { x: data.x, y: data.y };
       ctx.beginPath();
-      ctx.moveTo(data.x, data.y);
+      ctx.arc(data.x, data.y, data.width / 2, 0, Math.PI * 2);
+      if (!isEraser) ctx.fillStyle = data.color;
+      ctx.fill();
     } else {
-      ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
-      if (!isEraser) ctx.strokeStyle = data.color;
-      ctx.lineWidth = data.width;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+      // Subsequent points: self-contained segment — no shared path state
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
       ctx.lineTo(data.x, data.y);
       ctx.stroke();
+      ctx.activePaths[data.pathId] = { x: data.x, y: data.y };
     }
   };
 

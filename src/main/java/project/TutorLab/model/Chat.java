@@ -1,5 +1,8 @@
 package project.TutorLab.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Chat {
     private String id;
     private String tutorId;

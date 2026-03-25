@@ -15,6 +15,7 @@ public class StudentAccountRepositoryImpl implements StudentAccountRepository {
 
     private static final String ACCOUNT_PREFIX = "student_account:";
     private static final String EMAIL_INDEX_PREFIX = "student_account_email:";
+    private static final String GOOGLE_INDEX_PREFIX = "student_account_google:";
 
     @Value("${app.student.ttl-days:30}")
     private long ttlDays;
@@ -29,8 +30,14 @@ public class StudentAccountRepositoryImpl implements StudentAccountRepository {
     public StudentAccount save(StudentAccount account) {
         String key = ACCOUNT_PREFIX + account.getId();
         redisTemplate.opsForValue().set(key, account, ttlDays, TimeUnit.DAYS);
-        String emailKey = EMAIL_INDEX_PREFIX + account.getEmail().toLowerCase();
-        redisTemplate.opsForValue().set(emailKey, account.getId(), ttlDays, TimeUnit.DAYS);
+        if (account.getEmail() != null) {
+            redisTemplate.opsForValue().set(
+                EMAIL_INDEX_PREFIX + account.getEmail().toLowerCase(), account.getId(), ttlDays, TimeUnit.DAYS);
+        }
+        if (account.getGoogleId() != null && !account.getGoogleId().isBlank()) {
+            redisTemplate.opsForValue().set(
+                GOOGLE_INDEX_PREFIX + account.getGoogleId(), account.getId(), ttlDays, TimeUnit.DAYS);
+        }
         return account;
     }
 
@@ -49,6 +56,13 @@ public class StudentAccountRepositoryImpl implements StudentAccountRepository {
     @Override
     public StudentAccount findByEmail(String email) {
         Object idVal = redisTemplate.opsForValue().get(EMAIL_INDEX_PREFIX + email.toLowerCase());
+        if (idVal == null) return null;
+        return findById(idVal.toString());
+    }
+
+    @Override
+    public StudentAccount findByGoogleId(String googleId) {
+        Object idVal = redisTemplate.opsForValue().get(GOOGLE_INDEX_PREFIX + googleId);
         if (idVal == null) return null;
         return findById(idVal.toString());
     }

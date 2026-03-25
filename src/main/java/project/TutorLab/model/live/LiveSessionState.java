@@ -1,5 +1,6 @@
 package project.TutorLab.model.live;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -7,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class LiveSessionState implements Serializable {
     private String sessionId;
     private String tutorId;
@@ -75,6 +77,7 @@ public class LiveSessionState implements Serializable {
     }
 
     // Inner classes
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class DrawPath implements Serializable {
         private String pathId;
         private String color;
@@ -114,6 +117,7 @@ public class LiveSessionState implements Serializable {
         }
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Point implements Serializable {
         private double x;
         private double y;
