@@ -36,4 +36,7 @@ public interface StudentAccountService {
 
     /** Updates the student account's avatar photo URL. */
     Map<String, Object> updatePhotoUrl(String accountId, String photoUrl);
+
+    /** Find-or-create a student account via Google OAuth. */
+    Map<String, Object> googleAuth(String idToken);
 }

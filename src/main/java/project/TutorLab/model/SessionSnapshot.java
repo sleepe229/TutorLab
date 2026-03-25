@@ -1,5 +1,6 @@
 package project.TutorLab.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import project.TutorLab.model.live.LiveSessionState;
 
 import java.io.Serializable;
@@ -25,6 +26,7 @@ import java.util.Map;
  *
  * Recap lookup: lesson_recap:{snapshotId} — snapshotId IS the recap key. No recapId in this object.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class SessionSnapshot implements Serializable {
 
     private String id;

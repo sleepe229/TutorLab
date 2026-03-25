@@ -39,6 +39,7 @@ services:
       APP_SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-24}
       APP_UPLOAD_DIR: /app/uploads
       APP_UPLOAD_MATERIALS_DIR: /app/uploads/materials
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       JAVA_OPTS: "-Xms256m -Xmx512m"
     volumes:
       - uploads_data:/app/uploads

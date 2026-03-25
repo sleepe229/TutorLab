@@ -243,7 +243,11 @@ function TutorMarketplace({ studentAccountId }) {
                         className="btn btn-primary mkt-card__contact"
                         onClick={async () => {
                           if (!studentAccountId) {
-                            navigate('/home');
+                            if (isTutorLoggedIn) {
+                              toast('Чат доступен только для учеников');
+                            } else {
+                              navigate('/home');
+                            }
                             return;
                           }
                           const firstName = localStorage.getItem('studentFirstName') || '';
