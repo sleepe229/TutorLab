@@ -254,7 +254,8 @@ function TutorMarketplace({ studentAccountId }) {
                           const lastName = localStorage.getItem('studentLastName') || '';
                           const name = `${firstName} ${lastName}`.trim() || 'Ученик';
                           try {
-                            await chatApi.getOrCreate(tutor.id, studentAccountId, name);
+                            const token = localStorage.getItem('studentToken');
+                            await chatApi.getOrCreateAsStudent(tutor.id, studentAccountId, name, token);
                             navigate('/chat');
                           } catch {
                             toast.error('Не удалось открыть чат');
