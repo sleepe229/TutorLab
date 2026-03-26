@@ -104,4 +104,119 @@ class LiveSessionServiceImplTest {
                 !((LiveSessionState) s).getSlideDrawings().containsKey(0)
         ), any());
     }
+
+    @Test
+    void getSession_unknownId_returnsNull() {
+        when(valueOperations.get("live:session:nonexistent")).thenReturn(null);
+        assertNull(liveSessionService.getSession("nonexistent"));
+    }
+
+    @Test
+    void getSession_wrongType_returnsNull() {
+        // If Redis returns something unexpected (e.g. a String), should return null
+        when(valueOperations.get("live:session:wrong")).thenReturn("not-a-state");
+        assertNull(liveSessionService.getSession("wrong"));
+    }
+
+    @Test
+    void addSlides_setsUrlsAndResetsToSlideZero() {
+        LiveSessionState state = new LiveSessionState();
+        state.setSessionId("sess1");
+        state.setSlideUrls(new ArrayList<>());
+        state.setSlideDrawings(new HashMap<>());
+        state.setCurrentSlideIndex(3);
+
+        when(valueOperations.get("live:session:sess1")).thenReturn(state);
+
+        List<String> slides = List.of("/slides/1.png", "/slides/2.png");
+        liveSessionService.addSlides("sess1", slides);
+
+        verify(valueOperations).set(eq("live:session:sess1"), argThat(s ->
+                s instanceof LiveSessionState
+                && ((LiveSessionState) s).getSlideUrls().size() == 2
+                && ((LiveSessionState) s).getCurrentSlideIndex() == 0
+        ), any());
+    }
+
+    @Test
+    void addSlides_sessionNotFound_doesNothing() {
+        when(valueOperations.get("live:session:missing")).thenReturn(null);
+        liveSessionService.addSlides("missing", List.of("/slide.png"));
+        // Should not throw and should not call set
+        verify(valueOperations, never()).set(eq("live:session:missing"), any(), any());
+    }
+
+    @Test
+    void deleteSession_removesSessionAndTutorIndex() {
+        LiveSessionState state = new LiveSessionState();
+        state.setSessionId("sess-del");
+        state.setTutorId("tutor-del");
+        state.setSlideUrls(new ArrayList<>());
+        state.setSlideDrawings(new HashMap<>());
+
+        when(valueOperations.get("live:session:sess-del")).thenReturn(state);
+        when(valueOperations.get("live:session:tutor:tutor-del")).thenReturn("sess-del");
+
+        liveSessionService.deleteSession("sess-del");
+
+        verify(redisTemplate).delete("live:session:tutor:tutor-del");
+        verify(redisTemplate).delete("live:session:sess-del");
+    }
+
+    @Test
+    void deleteSession_tutorIndexPointsDifferentSession_doesNotDeleteTutorIndex() {
+        LiveSessionState state = new LiveSessionState();
+        state.setSessionId("sess-A");
+        state.setTutorId("tutor-1");
+        state.setSlideUrls(new ArrayList<>());
+        state.setSlideDrawings(new HashMap<>());
+
+        when(valueOperations.get("live:session:sess-A")).thenReturn(state);
+        // Tutor index points to a different session (e.g. tutor started a new session)
+        when(valueOperations.get("live:session:tutor:tutor-1")).thenReturn("sess-B");
+
+        liveSessionService.deleteSession("sess-A");
+
+        verify(redisTemplate, never()).delete("live:session:tutor:tutor-1");
+        verify(redisTemplate).delete("live:session:sess-A");
+    }
+
+    @Test
+    void getSessionByTutor_validTutor_returnsSession() {
+        LiveSessionState state = new LiveSessionState();
+        state.setSessionId("sess1");
+        state.setTutorId("tutor-1");
+        state.setSlideUrls(new ArrayList<>());
+        state.setSlideDrawings(new HashMap<>());
+
+        when(valueOperations.get("live:session:tutor:tutor-1")).thenReturn("sess1");
+        when(valueOperations.get("live:session:sess1")).thenReturn(state);
+
+        LiveSessionState result = liveSessionService.getSessionByTutor("tutor-1");
+
+        assertNotNull(result);
+        assertEquals("sess1", result.getSessionId());
+    }
+
+    @Test
+    void getSessionByTutor_noSession_returnsNull() {
+        when(valueOperations.get("live:session:tutor:tutor-X")).thenReturn(null);
+        assertNull(liveSessionService.getSessionByTutor("tutor-X"));
+    }
+
+    @Test
+    void updateSlide_sessionNotFound_doesNothing() {
+        when(valueOperations.get("live:session:missing")).thenReturn(null);
+        liveSessionService.updateSlide("missing", 5);
+        verify(valueOperations, never()).set(eq("live:session:missing"), any(), any());
+    }
+
+    @Test
+    void createSession_nullTitle_usesDefaultTitle() {
+        doNothing().when(valueOperations).set(anyString(), any(), any());
+
+        LiveSessionState state = liveSessionService.createSession("tutor1", null);
+
+        assertEquals("Новый урок", state.getTitle());
+    }
 }

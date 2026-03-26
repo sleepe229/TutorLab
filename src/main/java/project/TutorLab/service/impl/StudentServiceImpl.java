@@ -48,7 +48,8 @@ public class StudentServiceImpl implements StudentService {
         student.setMaterialUrls(new ArrayList<>());
         student.setLessonDates(new ArrayList<>());
         student.setLessonMaterials(new HashMap<>());
-        
+        student.setLessonPayments(new HashMap<>());
+
         studentRepository.save(student);
         
         return convertToResponseDto(student);
