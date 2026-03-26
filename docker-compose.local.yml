@@ -31,6 +31,25 @@ services:
       retries: 5
       start_period: 10s
 
+  postgres:
+    image: postgres:18-alpine
+    container_name: tutorlab-local-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tutorlab
+      POSTGRES_USER: tutorlab
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localpostgrespass}
+    volumes:
+      - local_postgres_data:/var/lib/postgresql/data
+    networks:
+      - local_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tutorlab"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   app:
     image: tutorlab:local
     build:
@@ -42,6 +61,9 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-localredispass}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tutorlab
+      SPRING_DATASOURCE_USERNAME: tutorlab
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-localpostgrespass}
       APP_CORS_ALLOWED_ORIGINS: http://localhost
       APP_JWT_SECRET: ${JWT_SECRET:-LocalTestSecretKeyForJWTSigningMustBe256BitsLong!}
       APP_UPLOAD_DIR: /app/uploads
@@ -53,6 +75,8 @@ services:
       - local_uploads_data:/app/uploads
     depends_on:
       redis:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     networks:
       - local_internal
@@ -88,3 +112,4 @@ networks:
 volumes:
   local_redis_data:
   local_uploads_data:
+  local_postgres_data:

@@ -1,183 +1,144 @@
 package project.TutorLab.repository.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 import project.TutorLab.model.Chat;
 import project.TutorLab.model.ChatMessage;
+import project.TutorLab.model.ChatParticipant;
 import project.TutorLab.repository.ChatRepository;
+import project.TutorLab.repository.jpa.ChatJpaRepository;
+import project.TutorLab.repository.jpa.ChatMessageJpaRepository;
+import project.TutorLab.repository.jpa.ChatParticipantJpaRepository;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Repository
 public class ChatRepositoryImpl implements ChatRepository {
 
-    private static final String CHAT_KEY_PREFIX = "chat:";
-    private static final String CHAT_TUTOR_PREFIX = "chat:tutor:";
-    private static final String CHAT_STUDENT_PREFIX = "chat:student:";
-    private static final String CHAT_MATCH_PREFIX = "chat:match:";
-    private static final String CHAT_MESSAGES_PREFIX = "chat:messages:";
-    private static final String CHAT_GROUP_PREFIX = "chat:group:";
-    private static final long TTL_DAYS = 90;
-    private static final int MAX_MESSAGES = 200;
+    @Autowired
+    private ChatJpaRepository chatJpaRepository;
 
     @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private ChatMessageJpaRepository chatMessageJpaRepository;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private ChatParticipantJpaRepository chatParticipantJpaRepository;
 
     @Override
+    @Transactional
     public Chat save(Chat chat) {
-        String key = CHAT_KEY_PREFIX + chat.getId();
-        redisTemplate.opsForValue().set(key, chat, TTL_DAYS, TimeUnit.DAYS);
+        chatJpaRepository.save(chat);
 
         if (chat.isGroup()) {
-            // Group chats are indexed per participant via addToGroupIndex
-            return chat;
+            // Sync chat_participants table with current transient fields
+            chatParticipantJpaRepository.deleteAllByChatId(chat.getId());
+
+            List<String> participants = chat.getParticipantIds();
+            List<String> admins = chat.getAdminIds();
+            List<String> hidden = chat.getHiddenForMembers();
+
+            for (String pid : participants) {
+                boolean isAdmin = admins != null && admins.contains(pid);
+                boolean isHidden = hidden != null && hidden.contains(pid);
+                chatParticipantJpaRepository.save(new ChatParticipant(chat.getId(), pid, isAdmin, isHidden));
+            }
         }
-
-        String tutorSetKey = CHAT_TUTOR_PREFIX + chat.getTutorId();
-        redisTemplate.opsForSet().add(tutorSetKey, chat.getId());
-        redisTemplate.expire(tutorSetKey, TTL_DAYS, TimeUnit.DAYS);
-
-        String studentSetKey = CHAT_STUDENT_PREFIX + chat.getStudentAccountId();
-        redisTemplate.opsForSet().add(studentSetKey, chat.getId());
-        redisTemplate.expire(studentSetKey, TTL_DAYS, TimeUnit.DAYS);
-
-        String matchKey = CHAT_MATCH_PREFIX + chat.getTutorId() + ":" + chat.getStudentAccountId();
-        redisTemplate.opsForValue().set(matchKey, chat.getId(), TTL_DAYS, TimeUnit.DAYS);
 
         return chat;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Chat findById(String id) {
-        String key = CHAT_KEY_PREFIX + id;
-        Object value = redisTemplate.opsForValue().get(key);
-        if (value == null) return null;
-        if (value instanceof Chat) return (Chat) value;
-        try {
-            return objectMapper.convertValue(value, Chat.class);
-        } catch (Exception e) {
-            return null;
-        }
+        Chat chat = chatJpaRepository.findById(id).orElse(null);
+        if (chat != null) populateTransientFields(chat);
+        return chat;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Chat> findByTutorId(String tutorId) {
-        String tutorSetKey = CHAT_TUTOR_PREFIX + tutorId;
-        Set<Object> chatIds = redisTemplate.opsForSet().members(tutorSetKey);
-        if (chatIds == null || chatIds.isEmpty()) return new ArrayList<>();
-        List<Chat> result = new ArrayList<>();
-        for (Object idObj : chatIds) {
-            Chat chat = findById(idObj.toString());
-            if (chat != null) result.add(chat);
-        }
-        return result;
+        List<Chat> chats = chatJpaRepository.findByTutorId(tutorId);
+        chats.forEach(this::populateTransientFields);
+        return chats;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Chat> findByStudentAccountId(String studentAccountId) {
-        String studentSetKey = CHAT_STUDENT_PREFIX + studentAccountId;
-        Set<Object> chatIds = redisTemplate.opsForSet().members(studentSetKey);
-        if (chatIds == null || chatIds.isEmpty()) return new ArrayList<>();
-        List<Chat> result = new ArrayList<>();
-        for (Object idObj : chatIds) {
-            Chat chat = findById(idObj.toString());
-            if (chat != null) result.add(chat);
-        }
-        return result;
+        List<Chat> chats = chatJpaRepository.findByStudentAccountId(studentAccountId);
+        chats.forEach(this::populateTransientFields);
+        return chats;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Chat findByTutorAndStudent(String tutorId, String studentAccountId) {
-        String matchKey = CHAT_MATCH_PREFIX + tutorId + ":" + studentAccountId;
-        Object chatIdObj = redisTemplate.opsForValue().get(matchKey);
-        if (chatIdObj == null) return null;
-        return findById(chatIdObj.toString());
+        Chat chat = chatJpaRepository.findDirectChat(tutorId, studentAccountId).orElse(null);
+        if (chat != null) populateTransientFields(chat);
+        return chat;
     }
 
     @Override
+    @Transactional
     public void saveMessage(String chatId, ChatMessage message) {
-        String listKey = CHAT_MESSAGES_PREFIX + chatId;
-        redisTemplate.opsForList().rightPush(listKey, message);
-        long size = redisTemplate.opsForList().size(listKey) != null
-                ? redisTemplate.opsForList().size(listKey)
-                : 0L;
-        if (size > MAX_MESSAGES) {
-            redisTemplate.opsForList().trim(listKey, size - MAX_MESSAGES, -1);
-        }
-        redisTemplate.expire(listKey, TTL_DAYS, TimeUnit.DAYS);
+        chatMessageJpaRepository.save(message);
     }
 
-    /**
-     * Update an existing message in-place by scanning the list for a matching id.
-     * Linear scan is acceptable: list is capped at MAX_MESSAGES (200).
-     */
     @Override
+    @Transactional
     public void updateMessage(String chatId, ChatMessage updated) {
-        String listKey = CHAT_MESSAGES_PREFIX + chatId;
-        List<Object> rawList = redisTemplate.opsForList().range(listKey, 0, -1);
-        if (rawList == null) return;
-        for (int i = 0; i < rawList.size(); i++) {
-            ChatMessage msg = toMessage(rawList.get(i));
-            if (msg != null && updated.getId().equals(msg.getId())) {
-                redisTemplate.opsForList().set(listKey, i, updated);
-                return;
-            }
-        }
+        chatMessageJpaRepository.save(updated);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ChatMessage> getMessages(String chatId) {
-        String listKey = CHAT_MESSAGES_PREFIX + chatId;
-        List<Object> rawList = redisTemplate.opsForList().range(listKey, 0, -1);
-        if (rawList == null || rawList.isEmpty()) return new ArrayList<>();
-        List<ChatMessage> messages = new ArrayList<>();
-        for (Object raw : rawList) {
-            ChatMessage msg = toMessage(raw);
-            if (msg != null) messages.add(msg);
-        }
-        return messages;
+        return chatMessageJpaRepository.findByChatIdOrderByTimestampAsc(chatId);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Chat> findGroupsByParticipantId(String participantId) {
-        String groupSetKey = CHAT_GROUP_PREFIX + participantId;
-        Set<Object> chatIds = redisTemplate.opsForSet().members(groupSetKey);
-        if (chatIds == null || chatIds.isEmpty()) return new ArrayList<>();
-        List<Chat> result = new ArrayList<>();
-        for (Object idObj : chatIds) {
-            Chat chat = findById(idObj.toString());
-            if (chat != null) result.add(chat);
-        }
-        return result;
+        List<ChatParticipant> memberships = chatParticipantJpaRepository.findById_ParticipantId(participantId);
+        List<String> chatIds = memberships.stream()
+                .map(ChatParticipant::getChatId)
+                .collect(Collectors.toList());
+        if (chatIds.isEmpty()) return new ArrayList<>();
+
+        List<Chat> groups = chatJpaRepository.findAllById(chatIds);
+        groups.forEach(this::populateTransientFields);
+        return groups;
     }
 
+    /** No-op: participant management is handled by save() for GROUP chats. */
     @Override
     public void addToGroupIndex(String participantId, String chatId) {
-        String groupSetKey = CHAT_GROUP_PREFIX + participantId;
-        redisTemplate.opsForSet().add(groupSetKey, chatId);
-        redisTemplate.expire(groupSetKey, TTL_DAYS, TimeUnit.DAYS);
+        // handled by save(Chat) which syncs chat_participants
     }
 
+    /** No-op: participant management is handled by save() for GROUP chats. */
     @Override
     public void removeFromGroupIndex(String participantId, String chatId) {
-        String groupSetKey = CHAT_GROUP_PREFIX + participantId;
-        redisTemplate.opsForSet().remove(groupSetKey, chatId);
+        // handled by save(Chat) which syncs chat_participants
     }
 
-    private ChatMessage toMessage(Object raw) {
-        if (raw instanceof ChatMessage) return (ChatMessage) raw;
-        try {
-            return objectMapper.convertValue(raw, ChatMessage.class);
-        } catch (Exception e) {
-            return null;
+    private void populateTransientFields(Chat chat) {
+        if (!chat.isGroup()) return;
+        List<ChatParticipant> participants = chatParticipantJpaRepository.findById_ChatId(chat.getId());
+        List<String> participantIds = new ArrayList<>();
+        List<String> adminIds = new ArrayList<>();
+        List<String> hiddenForMembers = new ArrayList<>();
+        for (ChatParticipant cp : participants) {
+            participantIds.add(cp.getParticipantId());
+            if (cp.isAdmin()) adminIds.add(cp.getParticipantId());
+            if (cp.isHidden()) hiddenForMembers.add(cp.getParticipantId());
         }
+        chat.setParticipantIds(participantIds);
+        chat.setAdminIds(adminIds);
+        chat.setHiddenForMembers(hiddenForMembers);
     }
 }

@@ -1,6 +1,9 @@
 package project.TutorLab.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import project.TutorLab.model.live.LiveSessionState;
 
 import java.io.Serializable;
@@ -10,43 +13,48 @@ import java.util.Map;
 
 /**
  * Immutable historical artifact representing a completed lesson.
- *
- * Governance:
- *  - CANONICAL source of truth for lesson history. Written once on session end. Never mutated.
- *  - Corrections must create a new snapshot version, not modify this record.
- *  - Redis TTL: 365 days (configurable via app.snapshot.ttl-days).
- *  - Migration path: when Redis storage cost becomes a concern (>10K active students),
- *    offload slideDrawings to S3 and store only the S3 reference here.
- *
- * Redis keys:
- *   session_snapshot:{id}                        → this object (365d TTL)
- *   session_snapshot_idx:session:{sessionId}     → snapshotId (dedup key, 365d TTL)
- *   student:snapshots:{studentId}  SET            → contains snapshotId
- *   tutor:snapshots:{tutorId}      SET            → contains snapshotId
- *
- * Recap lookup: lesson_recap:{snapshotId} — snapshotId IS the recap key. No recapId in this object.
+ * Written once on session end. Never mutated.
  */
+@Entity
+@Table(name = "session_snapshots")
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class SessionSnapshot implements Serializable {
 
+    @Id
     private String id;
+
+    @Column(name = "session_id", unique = true)
     private String sessionId;
+
+    @Column(name = "tutor_id")
     private String tutorId;
-    /** May be null if session ended without linking a student. */
+
+    @Column(name = "student_id")
     private String studentId;
+
     private String title;
+
+    @Column(name = "started_at")
     private LocalDateTime startedAt;
+
+    @Column(name = "ended_at")
     private LocalDateTime endedAt;
+
+    @Column(name = "duration_minutes")
     private int durationMinutes;
-    /** Deep copy of slideUrls at snapshot creation time. */
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "slide_urls", columnDefinition = "jsonb")
     private List<String> slideUrls;
-    /** Deep copy of all slide drawings at snapshot creation time. */
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "slide_drawings", columnDefinition = "jsonb")
     private Map<Integer, List<LiveSessionState.DrawPath>> slideDrawings;
-    /**
-     * Denormalized student name — preserved even if student:{studentId} TTL expires.
-     * Set from student profile at snapshot creation time.
-     */
+
+    @Column(name = "student_first_name")
     private String studentFirstName;
+
+    @Column(name = "student_last_name")
     private String studentLastName;
 
     public SessionSnapshot() {}
