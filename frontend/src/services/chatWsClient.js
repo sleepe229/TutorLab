@@ -14,6 +14,33 @@ import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 import { WS_URL } from '../config.js';
 
+/**
+ * Per-user WebSocket subscription for chat list events.
+ * Subscribes to /topic/user.{userId} and delivers CHAT_UPDATED,
+ * CHAT_ADDED, and CHAT_REMOVED events to the caller.
+ *
+ * @param {string} userId - The logged-in user's ID
+ * @param {function} onEvent - Called with the parsed event object
+ * @returns {{ disconnect: function }}
+ */
+export function connectUserWs(userId, onEvent) {
+  const socket = new SockJS(`${WS_URL}/ws`);
+  const client = Stomp.over(socket);
+  client.debug = null;
+
+  client.connect({}, () => {
+    client.subscribe(`/topic/user.${userId}`, (frame) => {
+      try {
+        onEvent(JSON.parse(frame.body));
+      } catch { /* ignore malformed */ }
+    });
+  });
+
+  return {
+    disconnect: () => { if (client.connected) client.disconnect(); },
+  };
+}
+
 export function connectChatWs(chatId, onMessage) {
   const socket = new SockJS(`${WS_URL}/ws`);
   const client = Stomp.over(socket);
