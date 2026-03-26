@@ -4,14 +4,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import project.TutorLab.dto.ChatParticipantInfoDto;
 import project.TutorLab.model.Chat;
 import project.TutorLab.model.ChatMessage;
+import project.TutorLab.model.Tutor;
 import project.TutorLab.repository.ChatRepository;
+import project.TutorLab.repository.TutorRepository;
+import project.TutorLab.repository.jpa.StudentAccountJpaRepository;
 import project.TutorLab.service.ChatService;
+import project.TutorLab.service.MessageEncryptionService;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class ChatServiceImpl implements ChatService {
@@ -20,6 +26,53 @@ public class ChatServiceImpl implements ChatService {
 
     @Autowired
     private ChatRepository chatRepository;
+
+    @Autowired
+    private TutorRepository tutorRepository;
+
+    @Autowired
+    private StudentAccountJpaRepository studentAccountJpaRepository;
+
+    @Autowired
+    private MessageEncryptionService encryptionService;
+
+    // ---- Lookup ----
+
+    @Override
+    public Chat getChat(String chatId) {
+        return chatRepository.findById(chatId);
+    }
+
+    @Override
+    public List<ChatParticipantInfoDto> getParticipantInfo(String chatId) {
+        Chat chat = chatRepository.findById(chatId);
+        if (chat == null) return List.of();
+
+        List<String> ids = chat.isGroup()
+            ? chat.getParticipantIds()
+            : List.of(chat.getTutorId(), chat.getStudentAccountId());
+
+        List<String> adminIds = chat.getAdminIds() != null ? chat.getAdminIds() : List.of();
+
+        return ids.stream().map(pid -> {
+            Tutor t = tutorRepository.findById(pid);
+            if (t != null) {
+                return new ChatParticipantInfoDto(pid,
+                    t.getFullName() != null ? t.getFullName() : pid,
+                    t.getPhotoUrl(),
+                    adminIds.contains(pid));
+            }
+            return studentAccountJpaRepository.findById(pid)
+                .map(sa -> {
+                    String firstName = sa.getFirstName() != null ? sa.getFirstName() : "";
+                    String lastName  = sa.getLastName()  != null ? sa.getLastName()  : "";
+                    String name = (firstName + " " + lastName).trim();
+                    if (name.isEmpty()) name = pid;
+                    return new ChatParticipantInfoDto(pid, name, sa.getPhotoUrl(), adminIds.contains(pid));
+                })
+                .orElse(new ChatParticipantInfoDto(pid, pid, null, adminIds.contains(pid)));
+        }).collect(Collectors.toList());
+    }
 
     // ---- DIRECT chat ----
 
@@ -68,17 +121,17 @@ public class ChatServiceImpl implements ChatService {
         message.setSenderId(senderId);
         message.setSenderRole(senderRole);
         message.setSenderName(senderName);
-        message.setText(text);
+        message.setText(encryptionService.encrypt(text));
         message.setType(type != null ? type : "TEXT");
         message.setInviteStudentId(inviteStudentId);
         message.setFileUrl(fileUrl);
-        message.setFileName(fileName);
+        message.setFileName(encryptionService.encrypt(fileName));
         message.setTimestamp(System.currentTimeMillis());
 
         chatRepository.saveMessage(chatId, message);
 
         if (chat != null) {
-            chat.setLastMessage(text);
+            chat.setLastMessage(text); // store plaintext in lastMessage preview
             chat.setLastTimestamp(message.getTimestamp());
             if ("TUTOR".equals(senderRole)) {
                 chat.setUnreadCountStudent(chat.getUnreadCountStudent() + 1);
@@ -91,12 +144,20 @@ public class ChatServiceImpl implements ChatService {
             chatRepository.save(chat);
         }
 
+        // Return message with decrypted text for the response
+        message.setText(text);
+        message.setFileName(fileName);
         return message;
     }
 
     @Override
     public List<ChatMessage> getMessages(String chatId) {
-        return chatRepository.getMessages(chatId);
+        List<ChatMessage> messages = chatRepository.getMessages(chatId);
+        messages.forEach(m -> {
+            m.setText(encryptionService.decrypt(m.getText()));
+            m.setFileName(encryptionService.decrypt(m.getFileName()));
+        });
+        return messages;
     }
 
     @Override
@@ -129,6 +190,8 @@ public class ChatServiceImpl implements ChatService {
         if (target == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Message not found");
         }
+        // Decrypt stored text before ownership/window checks
+        target.setText(encryptionService.decrypt(target.getText()));
         if (!requesterId.equals(target.getSenderId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your message");
         }
@@ -139,9 +202,10 @@ public class ChatServiceImpl implements ChatService {
         if (age > EDIT_WINDOW_MS) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Edit window expired (48h)");
         }
-        target.setText(newText);
+        target.setText(encryptionService.encrypt(newText));
         target.setEditedAt(System.currentTimeMillis());
         chatRepository.updateMessage(chatId, target);
+        target.setText(newText); // return plaintext
         return target;
     }
 
@@ -198,7 +262,7 @@ public class ChatServiceImpl implements ChatService {
         sysMsg.setSenderRole(creatorRole);
         sysMsg.setSenderName(creatorName);
         sysMsg.setType("SYSTEM");
-        sysMsg.setText("Группа создана");
+        sysMsg.setText(encryptionService.encrypt("Группа создана"));
         sysMsg.setTimestamp(System.currentTimeMillis());
         chatRepository.saveMessage(chat.getId(), sysMsg);
 

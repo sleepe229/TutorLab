@@ -1,11 +1,17 @@
 package project.TutorLab.service;
 
+import project.TutorLab.dto.ChatParticipantInfoDto;
 import project.TutorLab.model.Chat;
 import project.TutorLab.model.ChatMessage;
 
 import java.util.List;
 
 public interface ChatService {
+    /** Fetch a single chat by id. */
+    Chat getChat(String chatId);
+    /** Resolve participant names and avatars for a chat. */
+    List<ChatParticipantInfoDto> getParticipantInfo(String chatId);
+
     // --- DIRECT chat ---
     Chat getOrCreateChat(String tutorId, String studentAccountId, String studentName, String tutorName);
     List<Chat> getChatsForTutor(String tutorId);
@@ -30,7 +36,7 @@ public interface ChatService {
                      String creatorId, String creatorRole, String creatorName);
     /** Add a member to an existing group. Returns updated chat. */
     Chat addGroupMember(String chatId, String participantId, String requesterId);
-    /** Remove a member (or self-leave) from a group. Returns updated chat or null if group deleted. */
+    /** Remove a member (or self-leave) from a group. Returns updated chat. */
     Chat removeGroupMember(String chatId, String participantId, String requesterId);
     /** Get all groups this participant belongs to. */
     List<Chat> getGroupsForParticipant(String participantId);
