@@ -1,38 +1,76 @@
 package project.TutorLab.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import jakarta.persistence.*;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Entity
+@Table(name = "chats")
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Chat {
+
+    @Id
     private String id;
-    // DIRECT chat fields
-    private String tutorId;
-    private String tutorName;
-    private String studentAccountId;
-    private String studentName;
-    // Common fields
-    private String lastMessage;
-    private long lastTimestamp;
-    private int unreadCountTutor;
-    private int unreadCountStudent;
-    // Chat type: "DIRECT" (default) | "GROUP"
+
     private String type;
-    // GROUP-only fields
+
+    @Column(name = "tutor_id")
+    private String tutorId;
+
+    @Column(name = "tutor_name")
+    private String tutorName;
+
+    @Column(name = "student_account_id")
+    private String studentAccountId;
+
+    @Column(name = "student_name")
+    private String studentName;
+
+    @Column(name = "last_message")
+    private String lastMessage;
+
+    @Column(name = "last_timestamp")
+    private long lastTimestamp;
+
+    @Column(name = "unread_count_tutor", nullable = false)
+    private int unreadCountTutor;
+
+    @Column(name = "unread_count_student", nullable = false)
+    private int unreadCountStudent;
+
+    @Column(name = "group_name")
     private String groupName;
+
+    @Column(name = "group_avatar_url")
     private String groupAvatarUrl;
+
+    @Column(name = "creator_id")
     private String creatorId;
-    private String creatorRole; // "TUTOR" | "STUDENT"
-    private List<String> participantIds;    // all participant IDs
-    private List<String> adminIds;          // admin participant IDs
-    private List<String> hiddenForMembers;  // GROUP: participantIds that have hidden this chat
-    // DIRECT-only moderation fields
+
+    @Column(name = "creator_role")
+    private String creatorRole;
+
+    @Column(name = "blocked_by_tutor", nullable = false)
     private boolean blockedByTutor;
+
+    @Column(name = "blocked_by_student", nullable = false)
     private boolean blockedByStudent;
+
+    @Column(name = "hidden_for_tutor", nullable = false)
     private boolean hiddenForTutor;
+
+    @Column(name = "hidden_for_student", nullable = false)
     private boolean hiddenForStudent;
+
+    // Transient: populated from chat_participants table by ChatRepositoryImpl
+    @Transient
+    private List<String> participantIds;
+    @Transient
+    private List<String> adminIds;
+    @Transient
+    private List<String> hiddenForMembers;
 
     public Chat() {}
 
