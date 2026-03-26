@@ -13,6 +13,7 @@ import project.TutorLab.repository.TutorRepository;
 import project.TutorLab.service.ChatService;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -32,24 +33,37 @@ public class ChatController {
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
-    /** Resolve caller identity from either tutor or student token. Returns null if unauthenticated. */
+    // ── Auth helpers ──────────────────────────────────────────────────────────
+
+    /** Returns caller's id (tutorId or studentAccountId), or null if unauthenticated. */
     private String resolveCallerId(HttpServletRequest request) {
-        // Tutor path: AuthInterceptor already validated X-Session-Token and put tutorId in attribute
         String tutorId = (String) request.getAttribute("tutorId");
         if (tutorId != null) return tutorId;
-        // Tutor JWT in header (interceptor skipped for /api/chats/**)
         String sessionToken = request.getHeader("X-Session-Token");
         if (sessionToken != null && jwtService.isTokenValid(sessionToken)
                 && "TUTOR".equals(jwtService.extractRole(sessionToken))) {
             return jwtService.extractTutorId(sessionToken);
         }
-        // Student path: validate X-Student-Token directly
         String studentToken = request.getHeader("X-Student-Token");
         if (studentToken != null && jwtService.isStudentToken(studentToken)) {
-            return jwtService.extractTutorId(studentToken); // subject extraction is role-agnostic
+            return jwtService.extractTutorId(studentToken);
         }
         return null;
     }
+
+    /** Returns "TUTOR" or "STUDENT" based on which token is present. */
+    private String resolveCallerRole(HttpServletRequest request) {
+        String tutorId = (String) request.getAttribute("tutorId");
+        if (tutorId != null) return "TUTOR";
+        String sessionToken = request.getHeader("X-Session-Token");
+        if (sessionToken != null && jwtService.isTokenValid(sessionToken)
+                && "TUTOR".equals(jwtService.extractRole(sessionToken))) {
+            return "TUTOR";
+        }
+        return "STUDENT";
+    }
+
+    // ── DIRECT chat ───────────────────────────────────────────────────────────
 
     @PostMapping(path = {"", "/"})
     public ResponseEntity<Chat> getOrCreateChat(@RequestBody Map<String, String> body,
@@ -67,9 +81,7 @@ public class ChatController {
 
         String tutorName = "";
         Tutor tutor = tutorRepository.findById(tutorId);
-        if (tutor != null) {
-            tutorName = tutor.getFullName() != null ? tutor.getFullName() : "";
-        }
+        if (tutor != null) tutorName = tutor.getFullName() != null ? tutor.getFullName() : "";
         if (studentName == null) studentName = "";
 
         Chat chat = chatService.getOrCreateChat(tutorId, studentAccountId, studentName, tutorName);
@@ -123,11 +135,8 @@ public class ChatController {
         String fileUrl = body.get("fileUrl");
         String fileName = body.get("fileName");
 
-        if (senderRole == null || text == null) {
-            return ResponseEntity.badRequest().build();
-        }
+        if (senderRole == null || text == null) return ResponseEntity.badRequest().build();
 
-        // Use verified caller identity, not client-provided senderId
         ChatMessage message = chatService.sendMessage(chatId, callerId, senderRole, senderName,
                 text, type, inviteStudentId, fileUrl, fileName);
         messagingTemplate.convertAndSend("/topic/chat." + chatId, message);
@@ -151,5 +160,140 @@ public class ChatController {
         }
         chatService.markReadByStudent(chatId);
         return ResponseEntity.ok().build();
+    }
+
+    // ── Message edit / delete ─────────────────────────────────────────────────
+
+    @PutMapping("/{chatId}/messages/{messageId}")
+    public ResponseEntity<ChatMessage> editMessage(
+            @PathVariable String chatId,
+            @PathVariable String messageId,
+            @RequestBody Map<String, String> body,
+            HttpServletRequest request) {
+        String callerId = resolveCallerId(request);
+        if (callerId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        String newText = body.get("text");
+        if (newText == null || newText.isBlank()) return ResponseEntity.badRequest().build();
+        ChatMessage updated = chatService.editMessage(chatId, messageId, newText.trim(), callerId);
+        Map<String, Object> event = Map.of("type", "MESSAGE_EDITED", "message", updated);
+        messagingTemplate.convertAndSend("/topic/chat." + chatId, event);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/{chatId}/messages/{messageId}")
+    public ResponseEntity<Void> deleteMessage(
+            @PathVariable String chatId,
+            @PathVariable String messageId,
+            HttpServletRequest request) {
+        String callerId = resolveCallerId(request);
+        if (callerId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        ChatMessage deleted = chatService.deleteMessage(chatId, messageId, callerId);
+        Map<String, Object> event = Map.of("type", "MESSAGE_DELETED", "messageId", messageId);
+        messagingTemplate.convertAndSend("/topic/chat." + chatId, event);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── Group chats ───────────────────────────────────────────────────────────
+
+    @PostMapping("/groups")
+    public ResponseEntity<Chat> createGroup(@RequestBody Map<String, Object> body,
+                                            HttpServletRequest request) {
+        String callerId = resolveCallerId(request);
+        if (callerId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        String callerRole = resolveCallerRole(request);
+
+        String groupName = (String) body.get("groupName");
+        @SuppressWarnings("unchecked")
+        List<String> participantIds = (List<String>) body.getOrDefault("participantIds", new ArrayList<>());
+        String creatorName = (String) body.getOrDefault("creatorName", "");
+
+        if (groupName == null || groupName.isBlank()) return ResponseEntity.badRequest().build();
+
+        Chat group = chatService.createGroup(groupName.trim(), participantIds,
+                callerId, callerRole, creatorName);
+        return ResponseEntity.status(HttpStatus.CREATED).body(group);
+    }
+
+    @GetMapping("/groups/participant/{participantId}")
+    public ResponseEntity<List<Chat>> getGroupsForParticipant(
+            @PathVariable String participantId, HttpServletRequest request) {
+        String callerId = resolveCallerId(request);
+        if (callerId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (!callerId.equals(participantId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(chatService.getGroupsForParticipant(participantId));
+    }
+
+    @PostMapping("/groups/{chatId}/members")
+    public ResponseEntity<Chat> addGroupMember(
+            @PathVariable String chatId,
+            @RequestBody Map<String, String> body,
+            HttpServletRequest request) {
+        String callerId = resolveCallerId(request);
+        if (callerId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        String participantId = body.get("participantId");
+        if (participantId == null) return ResponseEntity.badRequest().build();
+        Chat updated = chatService.addGroupMember(chatId, participantId, callerId);
+        Map<String, Object> event = Map.of("type", "MEMBER_ADDED", "participantId", participantId);
+        messagingTemplate.convertAndSend("/topic/chat." + chatId, event);
+        return ResponseEntity.ok(updated);
+    }
+
+    @DeleteMapping("/groups/{chatId}/members/{participantId}")
+    public ResponseEntity<Chat> removeGroupMember(
+            @PathVariable String chatId,
+            @PathVariable String participantId,
+            HttpServletRequest request) {
+        String callerId = resolveCallerId(request);
+        if (callerId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        Chat updated = chatService.removeGroupMember(chatId, participantId, callerId);
+        Map<String, Object> event = Map.of("type", "MEMBER_REMOVED", "participantId", participantId);
+        messagingTemplate.convertAndSend("/topic/chat." + chatId, event);
+        return ResponseEntity.ok(updated);
+    }
+
+    // ── 1v1 moderation ────────────────────────────────────────────────────────
+
+    @PostMapping("/{chatId}/block")
+    public ResponseEntity<Chat> blockChat(@PathVariable String chatId,
+                                          HttpServletRequest request) {
+        String callerId = resolveCallerId(request);
+        if (callerId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        String callerRole = resolveCallerRole(request);
+        Chat updated = chatService.blockChat(chatId, callerId, callerRole);
+        Map<String, Object> event = Map.of("type", "CHAT_BLOCKED", "blockedBy", callerRole);
+        messagingTemplate.convertAndSend("/topic/chat." + chatId, event);
+        return ResponseEntity.ok(updated);
+    }
+
+    @PostMapping("/{chatId}/unblock")
+    public ResponseEntity<Chat> unblockChat(@PathVariable String chatId,
+                                            HttpServletRequest request) {
+        String callerId = resolveCallerId(request);
+        if (callerId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        String callerRole = resolveCallerRole(request);
+        Chat updated = chatService.unblockChat(chatId, callerId, callerRole);
+        return ResponseEntity.ok(updated);
+    }
+
+    @PostMapping("/{chatId}/hide")
+    public ResponseEntity<Chat> hideChat(@PathVariable String chatId,
+                                         HttpServletRequest request) {
+        String callerId = resolveCallerId(request);
+        if (callerId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        String callerRole = resolveCallerRole(request);
+        Chat updated = chatService.hideChat(chatId, callerId, callerRole);
+        return ResponseEntity.ok(updated);
+    }
+
+    @PostMapping("/{chatId}/unhide")
+    public ResponseEntity<Chat> unhideChat(@PathVariable String chatId,
+                                           HttpServletRequest request) {
+        String callerId = resolveCallerId(request);
+        if (callerId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        String callerRole = resolveCallerRole(request);
+        Chat updated = chatService.unhideChat(chatId, callerId, callerRole);
+        return ResponseEntity.ok(updated);
     }
 }

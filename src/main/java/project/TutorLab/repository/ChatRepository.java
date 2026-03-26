@@ -12,5 +12,9 @@ public interface ChatRepository {
     List<Chat> findByStudentAccountId(String studentAccountId);
     Chat findByTutorAndStudent(String tutorId, String studentAccountId);
     void saveMessage(String chatId, ChatMessage message);
+    void updateMessage(String chatId, ChatMessage message);
     List<ChatMessage> getMessages(String chatId);
+    List<Chat> findGroupsByParticipantId(String participantId);
+    void addToGroupIndex(String participantId, String chatId);
+    void removeFromGroupIndex(String participantId, String chatId);
 }

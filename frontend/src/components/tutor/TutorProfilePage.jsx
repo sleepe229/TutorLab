@@ -38,7 +38,8 @@ function TutorProfilePage({ studentAccountId }) {
       const firstName = localStorage.getItem('studentFirstName') || '';
       const lastName = localStorage.getItem('studentLastName') || '';
       const name = `${firstName} ${lastName}`.trim() || 'Ученик';
-      await chatApi.getOrCreate(id, studentAccountId, name);
+      const token = localStorage.getItem('studentToken');
+      await chatApi.getOrCreateAsStudent(id, studentAccountId, name, token);
       navigate('/chat');
     } catch {
       toast.error('Не удалось открыть чат');

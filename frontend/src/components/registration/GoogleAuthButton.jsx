@@ -14,8 +14,14 @@ const GoogleIcon = () => (
 /**
  * Google Sign-In — icon-only circular button.
  * Uses useGoogleLogin (implicit flow) → access_token → backend /auth/google.
+ * Outer component guards the hook call so Rules of Hooks are never violated.
  */
-function GoogleAuthButton({ role, onSuccess, onError, disabled }) {
+function GoogleAuthButton(props) {
+  if (!import.meta.env.VITE_GOOGLE_CLIENT_ID) return null;
+  return <GoogleAuthButtonInner {...props} />;
+}
+
+function GoogleAuthButtonInner({ role, onSuccess, onError, disabled }) {
   const [loading, setLoading] = useState(false);
 
   const login = useGoogleLogin({
