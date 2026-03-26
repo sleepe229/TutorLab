@@ -19,6 +19,9 @@ RUN --mount=type=cache,target=/root/.m2 \
 FROM node:20-alpine AS frontend-builder
 WORKDIR /frontend
 
+ARG VITE_GOOGLE_CLIENT_ID
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+
 COPY frontend/package*.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --silent
 
