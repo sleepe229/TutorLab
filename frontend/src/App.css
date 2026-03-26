@@ -153,7 +153,7 @@
   margin-bottom: 20px;
 }
 
-.form-group label {
+.form-group label:not(.checkbox-label) {
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
@@ -161,7 +161,7 @@
   font-size: 14px;
 }
 
-.form-group input,
+.form-group input:not([type="checkbox"]),
 .form-group textarea {
   width: 100%;
   padding: 12px 16px;
@@ -175,12 +175,12 @@
   transition: all 0.3s ease;
 }
 
-.form-group input::placeholder,
+.form-group input:not([type="checkbox"])::placeholder,
 .form-group textarea::placeholder {
   color: var(--text-muted);
 }
 
-.form-group input:focus,
+.form-group input:not([type="checkbox"]):focus,
 .form-group textarea:focus {
   outline: none;
   border-color: var(--accent-cyan);

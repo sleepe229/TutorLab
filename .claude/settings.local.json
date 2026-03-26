@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:www.better-auth.com)"
+      "WebFetch(domain:www.better-auth.com)",
+      "Bash(find C:Users0IdeaProjectsTutorLabfrontendsrccomponentschat -type f -name *.jsx -o -name *.js -o -name *.css)"
     ]
   }
 }

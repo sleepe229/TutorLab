@@ -15,6 +15,8 @@ public class ChatMessage {
     private String fileUrl;
     private String fileName;
     private long timestamp;
+    private Long editedAt;   // null = never edited; epoch ms
+    private boolean deleted; // soft-delete: text hidden, shows "Сообщение удалено"
 
     public ChatMessage() {}
 
@@ -50,4 +52,10 @@ public class ChatMessage {
 
     public long getTimestamp() { return timestamp; }
     public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
+
+    public Long getEditedAt() { return editedAt; }
+    public void setEditedAt(Long editedAt) { this.editedAt = editedAt; }
+
+    public boolean isDeleted() { return deleted; }
+    public void setDeleted(boolean deleted) { this.deleted = deleted; }
 }
