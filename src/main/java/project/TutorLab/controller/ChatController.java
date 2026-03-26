@@ -219,6 +219,9 @@ public class ChatController {
             @PathVariable String participantId, HttpServletRequest request) {
         String callerId = resolveCallerId(request);
         if (callerId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        if (!callerId.equals(participantId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(chatService.getGroupsForParticipant(participantId));
     }
 
