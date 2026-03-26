@@ -46,8 +46,10 @@ public class DatabaseUrlEnvironmentPostProcessor implements EnvironmentPostProce
                     .replace("postgres://", "postgresql://");
             URI uri = new URI(normalised);
 
+            int port = uri.getPort(); // -1 if absent; default PostgreSQL port is 5432
+            String portSegment = port != -1 ? ":" + port : ":5432";
             String jdbcUrl = "jdbc:postgresql://" + uri.getHost()
-                    + ":" + uri.getPort()
+                    + portSegment
                     + uri.getPath()
                     + "?sslmode=require";
 
