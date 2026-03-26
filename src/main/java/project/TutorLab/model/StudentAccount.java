@@ -1,13 +1,41 @@
 package project.TutorLab.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import jakarta.persistence.*;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Entity
+@Table(name = "student_accounts")
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class StudentAccount {
+
+    @Id
     private String id;
+
+    @Column(unique = true, nullable = false)
     private String email;
+
+    @Column(name = "password_hash")
     private String passwordHash;
+
+    @Column(name = "first_name")
     private String firstName;
+
+    @Column(name = "last_name")
     private String lastName;
-    /** IDs of tutor-created Student records this account is linked to (one per tutor) */
-    private java.util.List<String> linkedStudentIds = new java.util.ArrayList<>();
+
+    @Column(name = "photo_url")
+    private String photoUrl;
+
+    @Column(name = "google_id", unique = true)
+    private String googleId;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "student_account_links", joinColumns = @JoinColumn(name = "account_id"))
+    @Column(name = "student_id")
+    private List<String> linkedStudentIds = new ArrayList<>();
 
     public StudentAccount() {}
 
@@ -35,10 +63,14 @@ public class StudentAccount {
     public String getLastName() { return lastName; }
     public void setLastName(String lastName) { this.lastName = lastName; }
 
-    public java.util.List<String> getLinkedStudentIds() {
-        return linkedStudentIds != null ? linkedStudentIds : new java.util.ArrayList<>();
+    public List<String> getLinkedStudentIds() {
+        return linkedStudentIds != null ? linkedStudentIds : new ArrayList<>();
     }
-    public void setLinkedStudentIds(java.util.List<String> linkedStudentIds) {
-        this.linkedStudentIds = linkedStudentIds;
-    }
+    public void setLinkedStudentIds(List<String> linkedStudentIds) { this.linkedStudentIds = linkedStudentIds; }
+
+    public String getPhotoUrl() { return photoUrl; }
+    public void setPhotoUrl(String photoUrl) { this.photoUrl = photoUrl; }
+
+    public String getGoogleId() { return googleId; }
+    public void setGoogleId(String googleId) { this.googleId = googleId; }
 }

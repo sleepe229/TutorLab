@@ -1,0 +1,115 @@
+# Local Docker test — mirrors prod structure but isolated from production data.
+# Usage:
+#   docker compose -f docker-compose.local.yml up --build
+#
+# Differences from docker-compose.prod.yml:
+#   - SPRING_PROFILES_ACTIVE=local  (long JWT TTL, debug logging, Claude disabled)
+#   - Separate named volumes (local_redis_data, local_uploads_data) — no overlap with prod
+#   - nginx.local.conf: HTTP-only, no SSL certs required
+#   - JWT_SECRET has a safe local default so no .env file is required
+
+services:
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-localredispass}
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --loglevel warning
+    volumes:
+      - local_redis_data:/data
+    networks:
+      - local_internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-localredispass}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: tutorlab-local-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tutorlab
+      POSTGRES_USER: tutorlab
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localpostgrespass}
+    volumes:
+      - local_postgres_data:/var/lib/postgresql/data
+    networks:
+      - local_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tutorlab"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  app:
+    image: tutorlab:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-localredispass}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tutorlab
+      SPRING_DATASOURCE_USERNAME: tutorlab
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-localpostgrespass}
+      APP_CORS_ALLOWED_ORIGINS: http://localhost
+      APP_JWT_SECRET: ${JWT_SECRET:-LocalTestSecretKeyForJWTSigningMustBe256BitsLong!}
+      APP_UPLOAD_DIR: /app/uploads
+      APP_UPLOAD_MATERIALS_DIR: /app/uploads/materials
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      JAVA_OPTS: "-Xms128m -Xmx256m"
+      JAVA_TOOL_OPTIONS: "-Djava.net.preferIPv4Stack=true"
+    volumes:
+      - local_uploads_data:/app/uploads
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - local_internal
+      - local_external
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  nginx:
+    image: nginx:1.25-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+    networks:
+      - local_external
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 60s
+
+networks:
+  local_internal:
+    driver: bridge
+  local_external:
+    driver: bridge
+
+volumes:
+  local_redis_data:
+  local_uploads_data:
+  local_postgres_data:

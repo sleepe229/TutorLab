@@ -3,17 +3,20 @@ package project.TutorLab.controller;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import project.TutorLab.dto.TutorLoginDto;
 import project.TutorLab.dto.TutorRegistrationDto;
 import project.TutorLab.dto.TutorResponseDto;
+import project.TutorLab.service.AuthRateLimiter;
 
 import java.util.Map;
 
@@ -23,15 +26,31 @@ import static org.junit.jupiter.api.Assertions.*;
 @Testcontainers
 class TutorControllerIntegrationTest {
 
+    // Bypass rate limiting in integration tests — tests make multiple register/login
+    // calls from the same IP, which would otherwise hit the 3-per-5min limit.
+    @MockBean
+    AuthRateLimiter authRateLimiter;
+
     @Container
     @SuppressWarnings("resource")
     static GenericContainer<?> redis =
             new GenericContainer<>("redis:7-alpine").withExposedPorts(6379);
 
+    @Container
+    @SuppressWarnings("resource")
+    static PostgreSQLContainer<?> postgres =
+            new PostgreSQLContainer<>("postgres:16-alpine")
+                    .withDatabaseName("tutorlab")
+                    .withUsername("tutorlab")
+                    .withPassword("tutorlab");
+
     @DynamicPropertySource
-    static void redisProperties(DynamicPropertyRegistry registry) {
+    static void containerProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.data.redis.host", redis::getHost);
         registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
     }
 
     @Autowired
@@ -61,14 +80,14 @@ class TutorControllerIntegrationTest {
         TutorRegistrationDto dto = new TutorRegistrationDto();
         dto.setFullName("First User");
         dto.setLogin(login);
-        dto.setPassword("pass123");
+        dto.setPassword("password123");
 
         restTemplate.postForEntity("/api/tutors/register", dto, TutorResponseDto.class);
 
         TutorRegistrationDto dto2 = new TutorRegistrationDto();
         dto2.setFullName("Second User");
         dto2.setLogin(login);
-        dto2.setPassword("pass456");
+        dto2.setPassword("password456");
 
         ResponseEntity<Map> response =
                 restTemplate.postForEntity("/api/tutors/register", dto2, Map.class);
@@ -127,7 +146,7 @@ class TutorControllerIntegrationTest {
         TutorRegistrationDto dto = new TutorRegistrationDto();
         dto.setFullName("Refresh Tester");
         dto.setLogin("refresh_" + System.currentTimeMillis());
-        dto.setPassword("pass123");
+        dto.setPassword("password123");
 
         ResponseEntity<TutorResponseDto> regResponse =
                 restTemplate.postForEntity("/api/tutors/register", dto, TutorResponseDto.class);

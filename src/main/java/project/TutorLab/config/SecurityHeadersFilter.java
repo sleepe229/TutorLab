@@ -35,17 +35,21 @@ public class SecurityHeadersFilter implements Filter {
         // Control referrer information
         httpResponse.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
 
-        // Restrict powerful browser features
-        httpResponse.setHeader("Permissions-Policy", "camera=(), microphone=(self), geolocation=()");
+        // Restrict powerful browser features — camera=(self) required for WebRTC video
+        httpResponse.setHeader("Permissions-Policy", "camera=(self), microphone=(self), geolocation=()");
 
         // Content Security Policy
         httpResponse.setHeader("Content-Security-Policy",
                 "default-src 'self'; " +
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
-                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+                "script-src 'self' 'unsafe-inline' https://accounts.google.com; " +
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; " +
                 "font-src 'self' https://fonts.gstatic.com; " +
-                "img-src 'self' data: blob:; " +
-                "connect-src 'self' ws: wss: http://localhost:* https:;");
+                "img-src 'self' data: blob: https://*.googleusercontent.com https://accounts.google.com; " +
+                "frame-src https://accounts.google.com; " +
+                "connect-src 'self' wss://tutorlab.onrender.com https://api.anthropic.com https://fonts.googleapis.com https://fonts.gstatic.com https://accounts.google.com;");
+
+        // HSTS: enforce HTTPS for 2 years (required on Render where nginx is not in the path)
+        httpResponse.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
 
         chain.doFilter(request, response);
     }

@@ -11,15 +11,18 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "axios": "^1.3.0",
+    "@better-auth/infra": "^0.1.13",
+    "@react-oauth/google": "^0.13.4",
+    "axios": "^1.13.5",
     "events": "^3.3.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-draggable": "^4.5.0",
+    "react-helmet-async": "^3.0.0",
     "react-hot-toast": "^2.6.0",
     "react-joyride": "^2.8.2",
     "react-resizable": "^3.0.5",
-    "react-router-dom": "^6.8.0",
+    "react-router-dom": "^6.30.3",
     "simple-peer": "^9.11.1",
     "sockjs-client": "^1.6.1",
     "stompjs": "^2.3.3"
@@ -33,6 +36,6 @@
     "@vitejs/plugin-react": "^4.0.0",
     "jsdom": "^24.1.0",
     "vite": "^7.3.0",
-    "vitest": "^1.6.0"
+    "vitest": "^4.1.1"
   }
 }

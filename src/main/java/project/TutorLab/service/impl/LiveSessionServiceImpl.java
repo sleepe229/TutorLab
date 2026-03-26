@@ -8,6 +8,7 @@ import project.TutorLab.model.live.LiveSessionState;
 import project.TutorLab.service.LiveSessionService;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -31,6 +32,7 @@ public class LiveSessionServiceImpl implements LiveSessionService {
         state.setCurrentSlideIndex(0);
         state.setSlideUrls(new ArrayList<>());
         state.setSlideDrawings(new HashMap<>());
+        state.setStartedAt(LocalDateTime.now());
 
         saveSession(state);
         return state;
@@ -94,14 +96,33 @@ public class LiveSessionServiceImpl implements LiveSessionService {
 
     @Override
     public void deleteSession(String sessionId) {
+        LiveSessionState state = getSession(sessionId);
+        if (state != null) {
+            String tutorKey = "live:session:tutor:" + state.getTutorId();
+            Object currentSessionIdObj = redisTemplate.opsForValue().get(tutorKey);
+            if (currentSessionIdObj instanceof String
+                    && state.getSessionId().equals(currentSessionIdObj)) {
+                redisTemplate.delete(tutorKey);
+            }
+        }
         String key = KEY_PREFIX + sessionId;
         redisTemplate.delete(key);
     }
 
+    @Override
+    public LiveSessionState getSessionByTutor(String tutorId) {
+        String tutorKey = "live:session:tutor:" + tutorId;
+        Object sessionIdObj = redisTemplate.opsForValue().get(tutorKey);
+        if (!(sessionIdObj instanceof String)) return null;
+        return getSession((String) sessionIdObj);
+    }
+
     @SuppressWarnings("null")
     private void saveSession(LiveSessionState state) {
-        String key = KEY_PREFIX + state.getSessionId();
         Duration duration = Duration.ofHours(sessionTtlHours);
-        redisTemplate.opsForValue().set(key, state, duration);
+        redisTemplate.opsForValue().set(KEY_PREFIX + state.getSessionId(), state, duration);
+        // Keep the tutor→sessionId index TTL in sync so getSessionByTutor() never
+        // returns null while the session itself is still alive.
+        redisTemplate.opsForValue().set("live:session:tutor:" + state.getTutorId(), state.getSessionId(), duration);
     }
 }

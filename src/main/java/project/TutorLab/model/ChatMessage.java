@@ -1,15 +1,48 @@
 package project.TutorLab.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "chat_messages")
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ChatMessage {
+
+    @Id
     private String id;
+
+    @Column(name = "chat_id")
     private String chatId;
+
+    @Column(name = "sender_id")
     private String senderId;
+
+    @Column(name = "sender_role")
     private String senderRole;
+
+    @Column(name = "sender_name")
     private String senderName;
+
     private String text;
+
     private String type;
+
+    @Column(name = "invite_student_id")
     private String inviteStudentId;
+
+    @Column(name = "file_url")
+    private String fileUrl;
+
+    @Column(name = "file_name")
+    private String fileName;
+
     private long timestamp;
+
+    @Column(name = "edited_at")
+    private Long editedAt;
+
+    @Column(nullable = false)
+    private boolean deleted;
 
     public ChatMessage() {}
 
@@ -37,6 +70,18 @@ public class ChatMessage {
     public String getInviteStudentId() { return inviteStudentId; }
     public void setInviteStudentId(String inviteStudentId) { this.inviteStudentId = inviteStudentId; }
 
+    public String getFileUrl() { return fileUrl; }
+    public void setFileUrl(String fileUrl) { this.fileUrl = fileUrl; }
+
+    public String getFileName() { return fileName; }
+    public void setFileName(String fileName) { this.fileName = fileName; }
+
     public long getTimestamp() { return timestamp; }
     public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
+
+    public Long getEditedAt() { return editedAt; }
+    public void setEditedAt(Long editedAt) { this.editedAt = editedAt; }
+
+    public boolean isDeleted() { return deleted; }
+    public void setDeleted(boolean deleted) { this.deleted = deleted; }
 }

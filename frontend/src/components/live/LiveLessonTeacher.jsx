@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { connectToSession } from '../../services/wsClient';
 import { WebRTCService } from '../../services/webrtcService';
-import api from '../../services/api';
+import api, { studentApi, liveApi } from '../../services/api';
 import toast from 'react-hot-toast';
 import { API_BASE } from '../../config.js';
 import {
@@ -41,15 +41,26 @@ function LiveLessonTeacher({ tutorId }) {
   const [studentConnected, setStudentConnected] = useState(false);
   const screenStreamRef = useRef(null);
 
+  // End-lesson modal state
+  const [showEndModal, setShowEndModal] = useState(false);
+  const [endingLesson, setEndingLesson] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [tutorStudents, setTutorStudents] = useState([]);
+  const [snapshotId, setSnapshotId] = useState(null);
+  const [recap, setRecap] = useState(null);
+  const [recapPolling, setRecapPolling] = useState(false);
+
   const webrtcRef = useRef(null);
   const studentRtcRef = useRef(null);
   const localVideoRef = useRef(null);
   const studentVideoRef = useRef(null);
+  const studentStreamRef = useRef(null);
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const clientRef = useRef(null);
   const isDrawingRef = useRef(false);
   const pathIdRef = useRef(null);
+  const lastDrawPointRef = useRef(null);
 
   // Keep latest values inside event listeners without stale closures
   const toolRef = useRef(tool);
@@ -74,6 +85,8 @@ function LiveLessonTeacher({ tutorId }) {
       }
     }
   }, [isVideoEnabled, isScreenSharing]);
+
+  // Note: student video assignment is handled via ref callback directly on the <video> element
 
   // ── Session init (with restore on page refresh) ───────────────────────
   useEffect(() => {
@@ -146,7 +159,7 @@ function LiveLessonTeacher({ tutorId }) {
       const res = await api.get(`/live/sessions/${session.sessionId}/slides/${slideIndex}/drawings`);
       const ctx = canvasRef.current.getContext('2d');
       ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      ctx.currentPaths = {};
+      ctx.activePaths = {};
       res.data.forEach((path) => {
         if (!path.points?.length) return;
         ctx.strokeStyle = path.color;
@@ -162,7 +175,7 @@ function LiveLessonTeacher({ tutorId }) {
       if (canvasRef.current) {
         const ctx = canvasRef.current.getContext('2d');
         ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-        ctx.currentPaths = {};
+        ctx.activePaths = {};
       }
     }
   };
@@ -198,19 +211,36 @@ function LiveLessonTeacher({ tutorId }) {
 
   // ── WebRTC ────────────────────────────────────────────────────────────
   const handleWebRTCSignal = (data) => {
-    if (data.role === 'student') {
+    if (data.type !== 'signal') return;
+
+    // Ignore own echoes — STOMP broadcasts to all subscribers including sender
+    if (data.from === 'teacher') return;
+
+    if (data.role === 'teacher') {
+      // Student answered teacher's offer — route to teacher's own initiator peer
+      webrtcRef.current?.handleSignal(data.signal);
+    } else if (data.role === 'student') {
+      // Student is initiating their own stream toward teacher
+      // If we get a new offer, destroy any stale receiver peer first
+      if (data.signal?.type === 'offer' && studentRtcRef.current) {
+        studentRtcRef.current.stopStream();
+        studentRtcRef.current = null;
+        setStudentConnected(false);
+        if (studentVideoRef.current) studentVideoRef.current.srcObject = null;
+      }
       if (!studentRtcRef.current && clientRef.current) {
-        const rtc = new WebRTCService(clientRef.current, null, false, 'teacher');
+        // role='student' (student-initiated connection), sender='teacher' (I am the teacher)
+        const rtc = new WebRTCService(clientRef.current, null, false, 'student', 'teacher');
         rtc.onRemoteStream = (stream) => {
-          if (studentVideoRef.current) studentVideoRef.current.srcObject = stream;
+          studentStreamRef.current = stream;
           setStudentConnected(true);
+          // Assign directly in case video element is already mounted
+          if (studentVideoRef.current) studentVideoRef.current.srcObject = stream;
         };
         rtc.connect();
         studentRtcRef.current = rtc;
       }
       studentRtcRef.current?.handleSignal(data.signal);
-    } else if (data.type === 'signal' && webrtcRef.current) {
-      webrtcRef.current.handleSignal(data.signal);
     }
   };
 
@@ -261,27 +291,25 @@ function LiveLessonTeacher({ tutorId }) {
     const { x, y } = getCanvasCoords(e.clientX, e.clientY);
     isDrawingRef.current = true;
     pathIdRef.current = `path-${Date.now()}-${Math.random()}`;
+    lastDrawPointRef.current = { x, y };
 
     const ctx = canvasRef.current.getContext('2d');
+    const isEraser = toolRef.current === 'eraser';
+    ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+    ctx.lineWidth = isEraser ? lineWidthRef.current * 6 : lineWidthRef.current;
 
-    if (toolRef.current === 'eraser') {
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.lineWidth = lineWidthRef.current * 6;
-    } else {
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.strokeStyle = colorRef.current;
-      ctx.lineWidth = lineWidthRef.current;
-    }
-
+    // Draw starting dot so single-click marks are visible
     ctx.beginPath();
-    ctx.moveTo(x, y);
+    ctx.arc(x, y, ctx.lineWidth / 2, 0, Math.PI * 2);
+    if (!isEraser) { ctx.fillStyle = colorRef.current; }
+    ctx.fill();
 
     clientRef.current?.sendDraw({
       pathId: pathIdRef.current, x, y,
-      color: toolRef.current === 'eraser' ? 'eraser' : colorRef.current,
-      width: toolRef.current === 'eraser' ? lineWidthRef.current * 6 : lineWidthRef.current,
+      color: isEraser ? 'eraser' : colorRef.current,
+      width: ctx.lineWidth,
       end: false,
     });
   };
@@ -295,15 +323,28 @@ function LiveLessonTeacher({ tutorId }) {
       return;
     }
     if (!isDrawingRef.current) return;
+    const last = lastDrawPointRef.current;
+    if (!last) return;
 
     const ctx = canvasRef.current.getContext('2d');
+    const isEraser = toolRef.current === 'eraser';
+    ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
+    if (!isEraser) ctx.strokeStyle = colorRef.current;
+    ctx.lineWidth = isEraser ? lineWidthRef.current * 6 : lineWidthRef.current;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    ctx.beginPath();
+    ctx.moveTo(last.x, last.y);
     ctx.lineTo(x, y);
     ctx.stroke();
 
+    lastDrawPointRef.current = { x, y };
+
     clientRef.current?.sendDraw({
       pathId: pathIdRef.current, x, y,
-      color: toolRef.current === 'eraser' ? 'eraser' : colorRef.current,
-      width: toolRef.current === 'eraser' ? lineWidthRef.current * 6 : lineWidthRef.current,
+      color: isEraser ? 'eraser' : colorRef.current,
+      width: ctx.lineWidth,
       end: false,
     });
   };
@@ -311,6 +352,7 @@ function LiveLessonTeacher({ tutorId }) {
   const handleCanvasMouseUp = () => {
     if (!isDrawingRef.current) return;
     isDrawingRef.current = false;
+    lastDrawPointRef.current = null;
     const ctx = canvasRef.current?.getContext('2d');
     if (ctx) ctx.globalCompositeOperation = 'source-over';
     clientRef.current?.sendDraw({
@@ -340,31 +382,35 @@ function LiveLessonTeacher({ tutorId }) {
     if (!canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d');
     if (data.end) {
-      if (ctx.currentPaths) delete ctx.currentPaths[data.pathId];
+      if (ctx.activePaths) delete ctx.activePaths[data.pathId];
       ctx.globalCompositeOperation = 'source-over';
       return;
     }
     if (!data.pathId) return;
-    if (!ctx.currentPaths) ctx.currentPaths = {};
+    if (!ctx.activePaths) ctx.activePaths = {};
 
     const isEraser = data.color === 'eraser';
-    if (!ctx.currentPaths[data.pathId]) {
-      ctx.currentPaths[data.pathId] = true;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
-      if (!isEraser) ctx.strokeStyle = data.color;
-      ctx.lineWidth = data.width;
+    ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
+    if (!isEraser) ctx.strokeStyle = data.color;
+    ctx.lineWidth = data.width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const last = ctx.activePaths[data.pathId];
+    if (!last) {
+      // First point: draw a dot so single-click marks are visible
+      ctx.activePaths[data.pathId] = { x: data.x, y: data.y };
       ctx.beginPath();
-      ctx.moveTo(data.x, data.y);
+      ctx.arc(data.x, data.y, data.width / 2, 0, Math.PI * 2);
+      if (!isEraser) ctx.fillStyle = data.color;
+      ctx.fill();
     } else {
-      ctx.globalCompositeOperation = isEraser ? 'destination-out' : 'source-over';
-      if (!isEraser) ctx.strokeStyle = data.color;
-      ctx.lineWidth = data.width;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+      // Subsequent points: self-contained segment — no shared path state
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
       ctx.lineTo(data.x, data.y);
       ctx.stroke();
+      ctx.activePaths[data.pathId] = { x: data.x, y: data.y };
     }
   };
 
@@ -372,7 +418,7 @@ function LiveLessonTeacher({ tutorId }) {
     if (!canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d');
     ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    ctx.currentPaths = {};
+    ctx.activePaths = {};
   };
 
   const handleClearDrawings = () => {
@@ -384,12 +430,9 @@ function LiveLessonTeacher({ tutorId }) {
   const toggleAudio = async () => {
     if (!isAudioEnabled) {
       if (!clientRef.current) { toast.error('WebSocket не подключён'); return; }
-      const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher');
-      rtc.onRemoteStream = (stream) => {
-        const audio = new Audio();
-        audio.srcObject = stream;
-        audio.play().catch(() => {});
-      };
+      // role='teacher' (teacher-initiated), sender='teacher'
+      const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher', 'teacher');
+      rtc.onRemoteStream = () => {}; // teacher's mic peer — no remote video expected here
       const ok = await rtc.startStream({ audio: true, video: false });
       if (ok) {
         webrtcRef.current = rtc;
@@ -434,18 +477,15 @@ function LiveLessonTeacher({ tutorId }) {
       setIsMuted(false);
     }
 
-    const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher');
-    rtc.onRemoteStream = (stream) => {
-      const audio = new Audio();
-      audio.srcObject = stream;
-      audio.play().catch(() => {});
-    };
+    // role='teacher' (teacher-initiated), sender='teacher'
+    const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher', 'teacher');
+    rtc.onRemoteStream = () => {}; // teacher's camera peer — no remote video expected here
     const ok = await rtc.startStream({ audio: true, video: true });
     if (ok) {
       webrtcRef.current = rtc;
       setIsAudioEnabled(true);
       setIsVideoEnabled(true);
-      // srcObject is assigned via useEffect once the video element mounts
+      // srcObject assigned via useEffect once video element mounts
     } else {
       toast.error(mediaErrorMessage(rtc, 'камере'));
     }
@@ -458,33 +498,115 @@ function LiveLessonTeacher({ tutorId }) {
         screenStreamRef.current.getTracks().forEach(t => t.stop());
         screenStreamRef.current = null;
       }
+      webrtcRef.current?.stopStream();
+      webrtcRef.current = null;
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       setIsScreenSharing(false);
+      setIsAudioEnabled(false);
       return;
     }
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
       screenStreamRef.current = stream;
+
+      // Stop existing mic/camera peer if running
+      if (webrtcRef.current) {
+        webrtcRef.current.stopStream();
+        webrtcRef.current = null;
+        setIsAudioEnabled(false);
+        setIsVideoEnabled(false);
+        setIsMuted(false);
+      }
+
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+
+      // Send screen via WebRTC to student
+      if (clientRef.current && session) {
+        // role='teacher' (teacher-initiated), sender='teacher'
+        const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher', 'teacher');
+        rtc.onRemoteStream = () => {}; // screen share peer — no remote video expected
+        const started = rtc.startExistingStream(stream);
+        if (!started) {
+          toast.error(mediaErrorMessage(rtc, 'экрана'));
+          if (screenStreamRef.current) {
+            screenStreamRef.current.getTracks().forEach(t => t.stop());
+            screenStreamRef.current = null;
+          }
+          if (localVideoRef.current) localVideoRef.current.srcObject = null;
+          return;
+        }
+        webrtcRef.current = rtc;
+      }
+
       setIsScreenSharing(true);
-      // Stop when user ends share from browser UI
+
+      // Auto-stop when user clicks browser's "Stop sharing" button
       stream.getVideoTracks()[0].onended = () => {
+        webrtcRef.current?.stopStream();
+        webrtcRef.current = null;
         screenStreamRef.current = null;
         if (localVideoRef.current) localVideoRef.current.srcObject = null;
         setIsScreenSharing(false);
+        setIsAudioEnabled(false);
       };
     } catch (err) {
       if (err.name !== 'NotAllowedError') toast.error('Не удалось начать демонстрацию экрана');
     }
   };
 
-  // ── End lesson ────────────────────────────────────────────────────────
-  const handleEndLesson = () => {
+  // ── End lesson modal ──────────────────────────────────────────────────
+  const handleEndLesson = async () => {
+    // Load student list for the dropdown
+    try {
+      const res = await studentApi.getStudentsByTutor(tutorId);
+      setTutorStudents(res.data || []);
+    } catch {
+      setTutorStudents([]);
+    }
+    setShowEndModal(true);
+  };
+
+  const handleEndLessonConfirm = async () => {
+    if (!session || endingLesson) return;
+    setEndingLesson(true);
+
+    // Stop media/WS
     sessionStorage.removeItem('liveSessionId');
     clientRef.current?.disconnect();
     webrtcRef.current?.stopStream();
     studentRtcRef.current?.stopStream();
     if (screenStreamRef.current) screenStreamRef.current.getTracks().forEach(t => t.stop());
+
+    try {
+      const res = await liveApi.endSession(session.sessionId, selectedStudentId || null);
+      const sid = res.data.snapshotId;
+      setSnapshotId(sid);
+      toast.success('Урок завершён. Создаётся конспект...');
+      // Poll for recap (max 30s)
+      setRecapPolling(true);
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        attempts++;
+        try {
+          const recapRes = await liveApi.getRecap(sid);
+          if (recapRes.data && !recapRes.data.generationFailed) {
+            setRecap(recapRes.data);
+            clearInterval(poll);
+            setRecapPolling(false);
+          }
+        } catch { /* 404 = not ready yet */ }
+        if (attempts >= 10) {
+          clearInterval(poll);
+          setRecapPolling(false);
+        }
+      }, 3000);
+    } catch (e) {
+      toast.error('Ошибка при завершении урока');
+      setEndingLesson(false);
+    }
+  };
+
+  const handleEndLessonDone = () => {
     navigate('/home');
   };
 
@@ -535,6 +657,85 @@ function LiveLessonTeacher({ tutorId }) {
           </button>
         </div>
       </div>
+
+      {/* End-lesson modal */}
+      {showEndModal && (
+        <div className="end-modal-overlay" role="dialog" aria-modal="true" aria-label="Завершение урока">
+          <div className="end-modal">
+            {!snapshotId ? (
+              <>
+                <h2 className="end-modal-title">Завершить урок?</h2>
+                <p className="end-modal-hint">Выберите ученика, чтобы урок сохранился в его истории.</p>
+                <select
+                  className="end-modal-select"
+                  value={selectedStudentId}
+                  onChange={e => setSelectedStudentId(e.target.value)}
+                >
+                  <option value="">— Без привязки к ученику —</option>
+                  {tutorStudents.map(s => (
+                    <option key={s.id} value={s.id}>
+                      {s.firstName} {s.lastName}
+                    </option>
+                  ))}
+                </select>
+                <div className="end-modal-actions">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => setShowEndModal(false)}
+                    disabled={endingLesson}
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    onClick={handleEndLessonConfirm}
+                    disabled={endingLesson}
+                  >
+                    {endingLesson ? 'Завершение...' : 'Завершить урок'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="end-modal-title">Урок завершён</h2>
+                {recapPolling && !recap && (
+                  <p className="end-modal-hint">Конспект создаётся, подождите...</p>
+                )}
+                {recap && !recap.generationFailed && (
+                  <div className="end-modal-recap">
+                    {recap.topicsCovered?.length > 0 && (
+                      <div>
+                        <strong>Темы урока:</strong>
+                        <ul>{recap.topicsCovered.map((t, i) => <li key={i}>{t}</li>)}</ul>
+                      </div>
+                    )}
+                    {recap.struggledWith?.length > 0 && (
+                      <div>
+                        <strong>Трудности:</strong>
+                        <ul>{recap.struggledWith.map((t, i) => <li key={i}>{t}</li>)}</ul>
+                      </div>
+                    )}
+                    {recap.homeworkAssigned && (
+                      <div><strong>Домашнее задание:</strong> {recap.homeworkAssigned}</div>
+                    )}
+                    {recap.nextSessionFocus && (
+                      <div><strong>На следующий урок:</strong> {recap.nextSessionFocus}</div>
+                    )}
+                  </div>
+                )}
+                {!recapPolling && !recap && (
+                  <p className="end-modal-hint">Конспект будет готов позже.</p>
+                )}
+                <div className="end-modal-actions">
+                  <button className="btn btn-primary" onClick={handleEndLessonDone}>
+                    На главную
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Toolbar */}
       <div className="live-controls" role="toolbar" aria-label="Инструменты урока">
@@ -700,7 +901,15 @@ function LiveLessonTeacher({ tutorId }) {
           )}
           {studentConnected && (
             <div className="video-bubble">
-              <video ref={studentVideoRef} autoPlay playsInline className="video-el" />
+              <video
+                ref={(el) => {
+                  studentVideoRef.current = el;
+                  if (el && studentStreamRef.current) el.srcObject = studentStreamRef.current;
+                }}
+                autoPlay
+                playsInline
+                className="video-el"
+              />
               <span className="video-bubble-label">Ученик</span>
             </div>
           )}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { tutorApi, studentAccountApi } from '../../services/api';
+import GoogleAuthButton from './GoogleAuthButton';
 import './RegistrationChat.css';
 
 function RegistrationChat({ onRegister, role = 'tutor', onBack }) {
@@ -80,11 +81,21 @@ function RegistrationChat({ onRegister, role = 'tutor', onBack }) {
   const handleModeSelect = (selectedMode) => {
     setMode(selectedMode);
     setCurrentStep(0);
-    setFormData({ fullName: '', login: '', email: '', password: '', confirmPassword: '' });
+    setFormData(prev => ({ ...prev, password: '', confirmPassword: '' }));
     addUserMessage(selectedMode === 'register' ? 'Зарегистрироваться' : 'Войти');
     const fast = selectedMode === 'login';
     const stepsForMode = getSteps(selectedMode);
     setTimeout(() => addSystemMessage(stepsForMode[0].question, fast), fast ? 400 : 800);
+  };
+
+  const switchMode = (newMode) => {
+    setMode(newMode);
+    setCurrentStep(0);
+    setError('');
+    setFormData(prev => ({ ...prev, password: '', confirmPassword: '' }));
+    const stepsForMode = getSteps(newMode);
+    addUserMessage(newMode === 'register' ? 'Зарегистрироваться' : 'Войти');
+    setTimeout(() => addSystemMessage(stepsForMode[0].question, true), 400);
   };
 
   const handleInputChange = (e) => {
@@ -151,16 +162,28 @@ function RegistrationChat({ onRegister, role = 'tutor', onBack }) {
         addSystemMessage('Добро пожаловать! 🎉');
         setTimeout(() => onRegister(response.data), 1500);
       } catch (err) {
-        const isLogin = mode === 'login';
-        if (isLogin && err.response?.status === 401) {
-          setError(isStudent ? 'Неверный email или пароль' : 'Неверный логин или пароль');
-          addSystemMessage('Неверные данные. Попробуйте ещё раз.', true);
+        const status = err.response?.status;
+        const serverMsg = err.response?.data?.error || err.response?.data?.message;
+        let errorText;
+        if (mode === 'login') {
+          errorText = (status === 401 || status === 403)
+            ? (isStudent ? 'Неверный email или пароль' : 'Неверный логин или пароль')
+            : 'Ошибка при входе. Попробуйте позже.';
         } else {
-          setError(mode === 'register' ? 'Ошибка при регистрации.' : 'Ошибка при входе.');
-          addSystemMessage('Произошла ошибка. Попробуем ещё раз.', isLogin);
+          if (serverMsg?.toLowerCase().includes('already') || serverMsg?.toLowerCase().includes('registered') || status === 409) {
+            errorText = 'Аккаунт с таким email уже зарегистрирован';
+          } else if (serverMsg?.toLowerCase().includes('password') || serverMsg?.toLowerCase().includes('пароль')) {
+            errorText = 'Пароль должен содержать не менее 8 символов';
+          } else if (status === 400) {
+            errorText = serverMsg || 'Неверные данные. Проверьте введённые поля.';
+          } else {
+            errorText = 'Ошибка при регистрации. Попробуйте позже.';
+          }
         }
+        setError(errorText);
+        addSystemMessage('Попробуйте ещё раз.', true);
         setCurrentStep(0);
-        setFormData({ fullName: '', login: '', email: '', password: '', confirmPassword: '' });
+        setFormData(prev => ({ ...prev, password: '', confirmPassword: '' }));
         setLoading(false);
       }
     }
@@ -201,16 +224,31 @@ function RegistrationChat({ onRegister, role = 'tutor', onBack }) {
           ))}
 
           {!mode && messages.length > 0 && !isTyping && (
-            <div className="message message-system">
-              <div className="message-content mode-buttons">
-                <button type="button" className="mode-btn register-btn"
+            <div className="message-auth-choice">
+              <div className="tg-card">
+                <button type="button" className="tg-btn"
                   onClick={() => handleModeSelect('register')} disabled={loading}>
                   Зарегистрироваться
                 </button>
-                <button type="button" className="mode-btn login-btn"
+                <button type="button" className="tg-btn tg-btn--accent"
                   onClick={() => handleModeSelect('login')} disabled={loading}>
                   Войти
                 </button>
+              </div>
+              <div className="oauth-icon-row">
+                <span className="oauth-icon-label">или войдите через</span>
+                <div className="oauth-icons">
+                  <GoogleAuthButton
+                    role={role}
+                    disabled={loading}
+                    onSuccess={(data) => {
+                      addSystemMessage('Добро пожаловать! 🎉');
+                      setTimeout(() => onRegister(data), 1000);
+                    }}
+                    onError={() => setError('Ошибка входа через Google. Попробуйте позже.')}
+                  />
+                  {/* Future providers: Apple, GitHub, VK — add .oauth-icon-btn here */}
+                </div>
               </div>
             </div>
           )}
@@ -228,6 +266,9 @@ function RegistrationChat({ onRegister, role = 'tutor', onBack }) {
         {mode && (
           <form onSubmit={handleSubmit} className="chat-input-form">
             {error && <div className="error-message">{error}</div>}
+            {isPasswordField && currentField === 'password' && currentValue.length > 0 && currentValue.length < 8 && (
+              <div className="reg-password-hint">Минимум 8 символов</div>
+            )}
             <div className="input-wrapper">
               <div className="input-container">
                 <input
@@ -244,13 +285,14 @@ function RegistrationChat({ onRegister, role = 'tutor', onBack }) {
                   <button type="button" onClick={togglePasswordVisibility}
                     className="password-toggle-btn" tabIndex={-1}>
                     {isPasswordVisible ? (
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M1 1l22 22M23 1L1 23"/>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                        <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
                       </svg>
                     ) : (
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                         <circle cx="12" cy="12" r="3"/>
                       </svg>
@@ -262,19 +304,22 @@ function RegistrationChat({ onRegister, role = 'tutor', onBack }) {
                 disabled={loading || isTyping || !currentValue.trim()}
                 className="chat-submit-btn"
                 aria-label="Отправить">
-                {loading ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <circle cx="12" cy="12" r="9" strokeOpacity="0.3"/>
-                    <path d="M12 3a9 9 0 0 1 9 9" strokeLinecap="round"/>
-                  </svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12"/>
-                    <polyline points="13 6 19 12 13 18"/>
-                  </svg>
-                )}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="13 6 19 12 13 18"/>
+                </svg>
               </button>
             </div>
+            {mode === 'register' && (
+              <button type="button" className="reg-switch-mode" onClick={() => switchMode('login')}>
+                Уже есть аккаунт? Войти
+              </button>
+            )}
+            {mode === 'login' && (
+              <button type="button" className="reg-switch-mode" onClick={() => switchMode('register')}>
+                Нет аккаунта? Зарегистрироваться
+              </button>
+            )}
           </form>
         )}
       </div>

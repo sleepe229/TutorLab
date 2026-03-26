@@ -1,7 +1,9 @@
 package project.TutorLab.service;
 
+import project.TutorLab.dto.StudentSessionHistoryDto;
 import project.TutorLab.model.StudentAccount;
 
+import java.util.List;
 import java.util.Map;
 
 public interface StudentAccountService {
@@ -18,4 +20,23 @@ public interface StudentAccountService {
     StudentAccount getById(String id);
 
     void linkToStudent(String accountId, String studentId);
+
+    /**
+     * Returns session history for all student profiles linked to this account.
+     * One DTO per linked student profile, ordered by most recent session descending.
+     */
+    List<StudentSessionHistoryDto> getStudentHistory(String accountId);
+
+    /**
+     * Updates name and/or password for the given account.
+     * If newPassword is provided, currentPassword must be correct.
+     */
+    Map<String, Object> updateAccount(String accountId, String firstName, String lastName,
+                                      String currentPassword, String newPassword);
+
+    /** Updates the student account's avatar photo URL. */
+    Map<String, Object> updatePhotoUrl(String accountId, String photoUrl);
+
+    /** Find-or-create a student account via Google OAuth. */
+    Map<String, Object> googleAuth(String idToken);
 }

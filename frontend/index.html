@@ -3,12 +3,131 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="TutorLab - приложение для репетиторов" />
-    <title>TutorLab</title>
+    <meta name="theme-color" content="#5B73F5" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <meta name="description" content="TutorLab — онлайн-платформа для репетиторов: управление учениками, живые уроки с интерактивной доской, PDF-слайды и расписание занятий." />
+    <title>TutorLab — онлайн-платформа для репетиторов</title>
+
+    <!-- Google Fonts: preconnect before stylesheet to remove render-blocking round-trip -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;900&family=Inter:wght@400;500;600&display=swap" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="TutorLab — онлайн-платформа для репетиторов" />
+    <meta property="og:description" content="Управляйте учениками, проводите онлайн-уроки с интерактивной доской и находите учеников через маркетплейс репетиторов." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://tutorlab.onrender.com" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:image" content="https://tutorlab.onrender.com/og-image.svg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="TutorLab — онлайн-платформа для репетиторов" />
+    <meta name="twitter:description" content="Управляйте учениками, проводите онлайн-уроки с интерактивной доской и находите учеников через маркетплейс." />
+    <meta name="twitter:image" content="https://tutorlab.onrender.com/og-image.svg" />
+
+    <!-- Structured data: Organization + WebSite + SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://tutorlab.onrender.com/#organization",
+          "name": "TutorLab",
+          "url": "https://tutorlab.onrender.com",
+          "description": "Платформа для репетиторов: управление учениками, живые онлайн-уроки с интерактивной доской и расписание занятий.",
+          "email": "support@tutorlab.ru",
+          "sameAs": [],
+          "contactPoint": {
+            "@type": "ContactPoint",
+            "email": "support@tutorlab.ru",
+            "contactType": "customer support",
+            "availableLanguage": "Russian"
+          }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://tutorlab.onrender.com/#website",
+          "url": "https://tutorlab.onrender.com",
+          "name": "TutorLab",
+          "description": "Платформа для репетиторов: управление учениками, живые онлайн-уроки с интерактивной доской и расписание занятий.",
+          "inLanguage": "ru",
+          "publisher": { "@id": "https://tutorlab.onrender.com/#organization" }
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://tutorlab.onrender.com/#app",
+          "name": "TutorLab",
+          "url": "https://tutorlab.onrender.com",
+          "applicationCategory": "EducationApplication",
+          "operatingSystem": "Web",
+          "inLanguage": "ru",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "RUB",
+            "description": "Бесплатный доступ для репетиторов"
+          },
+          "description": "Веб-приложение для репетиторов: управление учениками, онлайн-уроки с интерактивной доской, загрузка PDF-презентаций, расписание и история занятий.",
+          "publisher": { "@id": "https://tutorlab.onrender.com/#organization" }
+        },
+        {
+          "@type": "FAQPage",
+          "@id": "https://tutorlab.onrender.com/#faq",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Что такое TutorLab?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "TutorLab — онлайн-платформа для репетиторов, позволяющая управлять учениками, вести расписание занятий и проводить живые онлайн-уроки с интерактивной доской и PDF-слайдами."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Как найти репетитора на TutorLab?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Откройте страницу tutorlab.onrender.com/tutors, выберите предмет и максимальную стоимость занятия. Для связи с репетитором необходимо войти как ученик."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Какие предметы преподают репетиторы на TutorLab?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Репетиторы на платформе TutorLab преподают различные предметы: математику, физику, английский язык, русский язык, химию, биологию и другие. Список предметов задаётся каждым репетитором индивидуально."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Как проходят онлайн-уроки на TutorLab?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Онлайн-уроки проводятся в браузере с помощью интерактивной доски для совместного рисования и аннотаций, а также с поддержкой загрузки PDF-презентаций. Связь между репетитором и учеником осуществляется через WebRTC (аудио и видео)."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Сколько стоят занятия с репетиторами?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Стоимость занятий определяется каждым репетитором самостоятельно и указывается в профиле в виде почасовой ставки в рублях. Фильтр по максимальной цене доступен на странице маркетплейса."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <noscript>Для работы приложения необходимо включить JavaScript.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

@@ -19,9 +19,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .excludePathPatterns(
                         "/api/tutors/register",
                         "/api/tutors/login",
+                        "/api/tutors/auth/google",
                         "/api/tutors/*/exists",
                         "/api/tutors/login/*/exists",
                         "/api/live/sessions/*",
+                        "/api/live/sessions/tutor/*",
                         "/api/live/sessions/*/presentation",
                         "/api/live/sessions/*/slides/*/drawings",
                         "/api/live/slides/**",
@@ -29,12 +31,19 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/students/*/view",
                         "/api/students/photos/**",
                         "/api/students/materials/**",
+                        "/api/students/upload-photo",
+                        "/api/students/upload-material",
                         "/api/auth/refresh",
                         "/api/auth/logout",
                         "/api/students/auth/**",
                         "/api/tutors/public",
+                        "/api/tutors/*/profile",
                         "/api/chats/**",
-                        "/api/join/**"
+                        "/api/join/**",
+                        // Recap is UUID-protected (unguessable), no auth needed
+                        "/api/live/recap/**",
+                        // Progress notes: dual-auth (tutor or student) handled in controller
+                        "/api/students/*/progress-notes"
                 );
     }
 }

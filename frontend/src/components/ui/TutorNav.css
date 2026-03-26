@@ -1,0 +1,26 @@
+/* Breadcrumb styles for TutorNav */
+.top-nav-breadcrumb {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-breadcrumb-sep {
+  color: var(--text-secondary);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.nav-breadcrumb-current {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Active icon button highlight */
+.nav-icon-btn--active {
+  background: var(--bg-elevated) !important;
+  color: var(--accent-primary) !important;
+  border-color: var(--accent-primary) !important;
+}

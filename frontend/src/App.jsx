@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { Toaster } from 'react-hot-toast';
 import axios from 'axios';
 import { API_BASE } from './config.js';
@@ -7,28 +8,41 @@ import RegistrationChat from './components/registration/RegistrationChat';
 import Home from './components/home/Home';
 import Settings from './components/settings/Settings';
 import StudentDetail from './components/student/StudentDetail';
-import LiveLessonTeacher from './components/live/LiveLessonTeacher';
-import LiveLessonStudent from './components/live/LiveLessonStudent';
 import Schedule from './components/schedule/Schedule';
 import StudentView from './components/studentview/StudentView';
-import StudentDashboard from './components/studentdashboard/StudentDashboard';
 import InviteHandler from './components/invite/InviteHandler';
-import ChatPage from './components/chat/ChatPage';
+import Footer from './components/ui/Footer';
 import JoinTutor from './components/join/JoinTutor';
 import TutorMarketplace from './components/marketplace/TutorMarketplace';
+import TutorProfilePage from './components/tutor/TutorProfilePage';
+import PrivacyPage from './components/legal/PrivacyPage';
+import TermsPage from './components/legal/TermsPage';
+import AboutPage from './components/about/AboutPage';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 import './App.css';
+
+// Lazy-load components that pull in heavy deps (stompjs/sockjs/simple-peer)
+const LiveLessonTeacher = lazy(() => import('./components/live/LiveLessonTeacher'));
+const LiveLessonStudent = lazy(() => import('./components/live/LiveLessonStudent'));
+const ChatPage = lazy(() => import('./components/chat/ChatPage'));
+// StudentDashboard imports wsClient which statically imports stompjs/sockjs — lazy to keep stomp out of entry chunk
+const StudentDashboard = lazy(() => import('./components/studentdashboard/StudentDashboard'));
 
 /** Landing: choose role before showing the auth chat */
 function RoleChoice({ onSelect }) {
   return (
     <div className="role-choice-overlay">
+      <Helmet>
+        <title>TutorLab — онлайн-платформа для репетиторов</title>
+        <meta name="description" content="TutorLab — инструмент для репетиторов: управление учениками, онлайн-уроки с интерактивной доской, PDF-слайды и расписание занятий." />
+        <link rel="canonical" href="https://tutorlab.onrender.com/" />
+      </Helmet>
       <div className="role-choice-card">
         <div className="role-choice-logo">
           <div className="brand-logo-mark" style={{ width: 48, height: 48, fontSize: 18, borderRadius: 12, background: '#5B73F5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800 }}>TL</div>
           <h1 className="role-choice-title">TutorLab</h1>
         </div>
-        <p className="role-choice-sub">Выберите, как вы хотите войти</p>
+        <p className="role-choice-sub">Управляйте учениками, проводите онлайн-уроки с интерактивной доской и находите студентов через маркетплейс репетиторов.</p>
         <div className="role-choice-buttons">
           <button className="role-btn role-btn-tutor" onClick={() => onSelect('tutor')}>
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -48,7 +62,17 @@ function RoleChoice({ onSelect }) {
           </button>
         </div>
       </div>
+      <Footer />
     </div>
+  );
+}
+
+/** Shared noindex meta for all authenticated-only routes */
+function NoIndexMeta() {
+  return (
+    <Helmet>
+      <meta name="robots" content="noindex, nofollow" />
+    </Helmet>
   );
 }
 
@@ -99,7 +123,7 @@ function AppContent() {
     setStudentAccountId(null);
     ['studentAccountId', 'studentToken', 'studentRefreshToken', 'studentFirstName', 'studentLastName']
       .forEach(k => localStorage.removeItem(k));
-    navigate('/home');
+    navigate('/tutors');
   };
 
   // Landing: not logged in as either role
@@ -118,34 +142,61 @@ function AppContent() {
       <Routes>
         <Route
           path="/home"
-          element={tutorId ? <Home tutorId={tutorId} onLogout={handleTutorLogout} /> : renderLanding()}
+          element={
+            tutorId ? (
+              <><NoIndexMeta /><Home tutorId={tutorId} onLogout={handleTutorLogout} /></>
+            ) : studentAccountId && !authRole ? (
+              <Navigate to="/me" replace />
+            ) : renderLanding()
+          }
         />
         <Route
           path="/settings"
-          element={tutorId ? <Settings tutorId={tutorId} onBack={() => navigate('/home')} /> : <Navigate to="/home" replace />}
+          element={tutorId ? (
+            <><NoIndexMeta /><Settings tutorId={tutorId} onBack={() => navigate('/home')} onLogout={handleTutorLogout} /></>
+          ) : <Navigate to="/home" replace />}
         />
         <Route
           path="/student/:id"
-          element={tutorId ? <StudentDetail tutorId={tutorId} /> : <Navigate to="/home" replace />}
+          element={tutorId ? (
+            <><NoIndexMeta /><StudentDetail tutorId={tutorId} /></>
+          ) : <Navigate to="/home" replace />}
         />
         <Route
           path="/live/teacher"
-          element={tutorId ? <LiveLessonTeacher tutorId={tutorId} /> : <Navigate to="/home" replace />}
+          element={tutorId ? (
+            <Suspense fallback={null}>
+              <NoIndexMeta />
+              <LiveLessonTeacher tutorId={tutorId} />
+            </Suspense>
+          ) : <Navigate to="/home" replace />}
         />
-        <Route path="/live/student/:sessionId" element={<LiveLessonStudent />} />
+        <Route
+          path="/live/student/:sessionId"
+          element={
+            <Suspense fallback={null}>
+              <NoIndexMeta />
+              <LiveLessonStudent />
+            </Suspense>
+          }
+        />
         <Route
           path="/schedule"
-          element={tutorId ? <Schedule tutorId={tutorId} onLogout={handleTutorLogout} /> : <Navigate to="/home" replace />}
+          element={tutorId ? (
+            <><NoIndexMeta /><Schedule tutorId={tutorId} onLogout={handleTutorLogout} /></>
+          ) : <Navigate to="/home" replace />}
         />
         <Route
           path="/me"
           element={
             studentAccountId
-              ? <StudentDashboard
-                  studentAccountId={studentAccountId}
-                  onLogout={handleStudentLogout}
-                />
-              : <Navigate to="/home" replace />
+              ? (
+                <Suspense fallback={null}>
+                  <NoIndexMeta />
+                  <StudentDashboard studentAccountId={studentAccountId} onLogout={handleStudentLogout} />
+                </Suspense>
+              )
+              : <Navigate to="/tutors" replace />
           }
         />
         {/* Public student cabinet — accessible by anyone with the link */}
@@ -165,32 +216,53 @@ function AppContent() {
           path="/chat"
           element={
             tutorId
-              ? <ChatPage role="TUTOR" senderId={tutorId} senderName={''} onLogout={handleTutorLogout} backPath="/home" />
+              ? (
+                <Suspense fallback={null}>
+                  <NoIndexMeta />
+                  <ChatPage role="TUTOR" senderId={tutorId} senderName={''} onLogout={handleTutorLogout} backPath="/home" />
+                </Suspense>
+              )
               : studentAccountId
-                ? <ChatPage
-                    role="STUDENT"
-                    senderId={studentAccountId}
-                    senderName={`${localStorage.getItem('studentFirstName') || ''} ${localStorage.getItem('studentLastName') || ''}`.trim()}
-                    token={localStorage.getItem('studentToken')}
-                    onLogout={handleStudentLogout}
-                    backPath="/me"
-                  />
+                ? (
+                  <Suspense fallback={null}>
+                    <NoIndexMeta />
+                    <ChatPage
+                      role="STUDENT"
+                      senderId={studentAccountId}
+                      senderName={`${localStorage.getItem('studentFirstName') || ''} ${localStorage.getItem('studentLastName') || ''}`.trim()}
+                      token={localStorage.getItem('studentToken')}
+                      onLogout={handleStudentLogout}
+                      backPath="/me"
+                    />
+                  </Suspense>
+                )
                 : <Navigate to="/home" replace />
           }
         />
-        {/* General tutor invite link — anyone visiting gets added as student */}
+        {/* General tutor invite link — noindex (ephemeral invite, not SEO-relevant) */}
         <Route
           path="/join/:tutorId"
           element={
-            <JoinTutor
-              studentAccountId={studentAccountId}
-              onStudentAuth={handleStudentAuth}
-            />
+            <>
+              <NoIndexMeta />
+              <JoinTutor
+                studentAccountId={studentAccountId}
+                onStudentAuth={handleStudentAuth}
+              />
+            </>
           }
         />
         {/* Tutor marketplace — accessible to everyone */}
         <Route path="/tutors" element={<TutorMarketplace studentAccountId={studentAccountId} />} />
-        <Route path="/" element={<Navigate to="/home" replace />} />
+        {/* Tutor public profile card — accessible to everyone */}
+        <Route path="/tutor/:id" element={<TutorProfilePage studentAccountId={studentAccountId} />} />
+
+        {/* Legal and about pages */}
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/about" element={<AboutPage />} />
+
+        <Route path="/" element={<Navigate to={studentAccountId ? '/me' : '/home'} replace />} />
       </Routes>
     </div>
   );

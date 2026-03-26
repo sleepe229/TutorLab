@@ -5,13 +5,17 @@ import org.springframework.stereotype.Service;
 import project.TutorLab.dto.StudentCardDto;
 import project.TutorLab.dto.StudentCreateDto;
 import project.TutorLab.dto.StudentResponseDto;
+import project.TutorLab.dto.StudentUpdateDto;
+import project.TutorLab.model.ProgressNote;
 import project.TutorLab.model.Student;
 import project.TutorLab.model.Tutor;
 import project.TutorLab.repository.StudentRepository;
 import project.TutorLab.repository.TutorRepository;
 import project.TutorLab.service.StudentService;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -78,6 +82,7 @@ public class StudentServiceImpl implements StudentService {
             cardDto.setPhotoUrl(student.getPhotoUrl());
             cardDto.setIsFavorite(favoriteIds.contains(student.getId()));
             cardDto.setLessonDates(student.getLessonDates());
+            cardDto.setStudentAccountId(student.getStudentAccountId());
             cardDtos.add(cardDto);
         }
         
@@ -255,6 +260,67 @@ public class StudentServiceImpl implements StudentService {
         }
         studentRepository.save(student);
         return convertToResponseDto(student);
+    }
+
+    @Override
+    public StudentResponseDto updateStudentInfo(String studentId, StudentUpdateDto dto) {
+        Student student = studentRepository.findById(studentId);
+        if (student == null) throw new IllegalArgumentException("Student not found: " + studentId);
+        if (dto.getFirstName() != null) student.setFirstName(dto.getFirstName());
+        if (dto.getLastName() != null) student.setLastName(dto.getLastName());
+        if (dto.getAge() != null) student.setAge(dto.getAge());
+        if (dto.getInterests() != null) student.setInterests(dto.getInterests());
+        studentRepository.save(student);
+        return convertToResponseDto(student);
+    }
+
+    @Override
+    public boolean hasAnyStudentWithTutor(List<String> studentIds, String tutorId) {
+        for (String studentId : studentIds) {
+            Student student = studentRepository.findById(studentId);
+            if (student != null && tutorId.equals(student.getTutorId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final int MAX_PROGRESS_NOTES = 500;
+
+    @Override
+    public ProgressNote addProgressNote(String studentId, ProgressNote note) {
+        Student student = studentRepository.findById(studentId);
+        if (student == null) throw new IllegalArgumentException("Student not found: " + studentId);
+
+        note.setId(UUID.randomUUID().toString());
+        if (note.getDate() == null) note.setDate(LocalDateTime.now());
+
+        List<ProgressNote> notes = student.getProgressNotes();
+        if (notes.size() >= MAX_PROGRESS_NOTES) {
+            // Remove oldest note to stay within cap
+            notes.remove(notes.size() - 1);
+        }
+        notes.add(0, note); // prepend (newest first)
+        student.setProgressNotes(notes);
+        studentRepository.save(student);
+        return note;
+    }
+
+    @Override
+    public List<ProgressNote> getProgressNotes(String studentId) {
+        Student student = studentRepository.findById(studentId);
+        if (student == null) throw new IllegalArgumentException("Student not found: " + studentId);
+        List<ProgressNote> notes = new ArrayList<>(student.getProgressNotes());
+        notes.sort(Comparator.comparing(ProgressNote::getDate, Comparator.nullsLast(Comparator.reverseOrder())));
+        return notes;
+    }
+
+    @Override
+    public void setStudentAccountId(String studentId, String studentAccountId) {
+        Student student = studentRepository.findById(studentId);
+        if (student == null) return;
+        student.setStudentAccountId(studentAccountId);
+        studentRepository.save(student);
     }
 }
 

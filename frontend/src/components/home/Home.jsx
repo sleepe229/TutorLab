@@ -2,17 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { studentApi, tutorApi } from '../../services/api';
 import StudentCard from './StudentCard';
-import ThemeToggle from '../ui/ThemeToggle';
+import TutorNav from '../ui/TutorNav';
 import Onboarding from '../ui/Onboarding';
 import InviteStudentModal from '../invite/InviteStudentModal';
+import Footer from '../ui/Footer';
+import { parseLocalDate } from '../../utils/date';
 import './Home.css';
 
 function Home({ tutorId, onLogout }) {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [showChat, setShowChat] = useState(false);
-  const [search, setSearch] = useState('');
+const [search, setSearch] = useState('');
   const inviteBtnRef = useRef(null);
   const [tutorName, setTutorName] = useState('');
   const navigate = useNavigate();
@@ -60,6 +61,10 @@ function Home({ tutorId, onLogout }) {
     } catch { /* silent */ }
   };
 
+  const handleMessage = (student) => {
+    navigate('/chat');
+  };
+
   const filteredStudents = search.trim()
     ? students.filter(s => `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase()))
     : students;
@@ -70,70 +75,14 @@ function Home({ tutorId, onLogout }) {
   today.setHours(0, 0, 0, 0);
   const upcomingToday = students.filter(s =>
     s.lessonDates?.some(d => {
-      const ld = new Date(d);
+      const dateStr = d.includes('|') ? d.split('|')[0] : d;
+      const ld = parseLocalDate(dateStr);
       return ld >= today && ld < new Date(today.getTime() + 86400000);
     })
   ).length;
   return (
     <div className="home-layout">
-
-      {/* ── Top Navigation ─────────────────────────────────────── */}
-      <header className="top-nav" role="banner">
-        <div className="top-nav-inner">
-          <div className="top-nav-brand">
-            <div className="brand-logo-mark">TL</div>
-            <span className="brand-name">TutorLab</span>
-          </div>
-
-          <nav className="top-nav-links" aria-label="Навигация">
-            <span className="nav-link active">Ученики</span>
-            <button className="nav-link nav-link-btn" onClick={() => navigate('/schedule')}>Расписание</button>
-          </nav>
-
-          <div className="top-nav-actions">
-            <ThemeToggle />
-            {isAuthenticated && (
-              <>
-                <button
-                  className="nav-icon-btn"
-                  onClick={() => navigate('/chat')}
-                  aria-label="Сообщения"
-                  title="Сообщения"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                  </svg>
-                </button>
-                <button
-                  className="nav-icon-btn"
-                  onClick={() => navigate('/settings')}
-                  aria-label="Настройки профиля"
-                  title="Настройки"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="3"/>
-                    <path d="M12 1v4m0 14v4M4.22 4.22l2.83 2.83m9.9 9.9 2.83 2.83M1 12h4m14 0h4M4.22 19.78l2.83-2.83m9.9-9.9 2.83-2.83"/>
-                  </svg>
-                </button>
-                {onLogout && (
-                  <button
-                    className="nav-icon-btn logout"
-                    onClick={onLogout}
-                    aria-label="Выйти из аккаунта"
-                    title="Выйти"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                      <polyline points="16 17 21 12 16 7"/>
-                      <line x1="21" y1="12" x2="9" y2="12"/>
-                    </svg>
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+      <TutorNav tutorId={tutorId} activePage="home" onLogout={onLogout} />
 
       {/* ── Page Content ───────────────────────────────────────── */}
       <main className="home-content" role="main">
@@ -238,6 +187,7 @@ function Home({ tutorId, onLogout }) {
                         onToggleFavorite={handleToggleFavorite}
                         tutorId={tutorId}
                         onStartLesson={handleStartLesson}
+                        onMessage={handleMessage}
                       />
                     ))}
                   </div>
@@ -259,6 +209,7 @@ function Home({ tutorId, onLogout }) {
                         onToggleFavorite={handleToggleFavorite}
                         tutorId={tutorId}
                         onStartLesson={handleStartLesson}
+                        onMessage={handleMessage}
                       />
                     ))}
                   </div>
@@ -280,16 +231,8 @@ function Home({ tutorId, onLogout }) {
         />
       )}
 
-      {showChat && isAuthenticated && (
-        <ChatPanel
-          role="TUTOR"
-          senderId={tutorId}
-          senderName={tutorName}
-          onClose={() => setShowChat(false)}
-        />
-      )}
-
       <Onboarding enabled={isAuthenticated} />
+      <Footer />
     </div>
   );
 }

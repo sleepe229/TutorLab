@@ -5,14 +5,21 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import project.TutorLab.config.JwtService;
+import project.TutorLab.dto.StudentSessionHistoryDto;
+import project.TutorLab.model.LessonRecap;
+import project.TutorLab.model.SessionSnapshot;
 import project.TutorLab.model.StudentAccount;
+import project.TutorLab.repository.LessonRecapRepository;
+import project.TutorLab.repository.SessionSnapshotRepository;
+import project.TutorLab.service.AuthRateLimiter;
 import project.TutorLab.service.StudentAccountService;
 
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/students/auth")
-@CrossOrigin(origins = "*")
 public class StudentAuthController {
 
     @Autowired
@@ -21,8 +28,18 @@ public class StudentAuthController {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private AuthRateLimiter authRateLimiter;
+
+    @Autowired
+    private SessionSnapshotRepository sessionSnapshotRepository;
+
+    @Autowired
+    private LessonRecapRepository lessonRecapRepository;
+
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> register(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        authRateLimiter.checkRegisterLimit(request);
         String email = body.get("email");
         String password = body.get("password");
         String firstName = body.get("firstName");
@@ -44,8 +61,23 @@ public class StudentAuthController {
         }
     }
 
+    @PostMapping("/google")
+    public ResponseEntity<?> googleAuth(@RequestBody Map<String, String> body) {
+        String accessToken = body.get("accessToken");
+        if (accessToken == null || accessToken.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "accessToken is required"));
+        }
+        try {
+            return ResponseEntity.ok(studentAccountService.googleAuth(accessToken));
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode())
+                .body(Map.of("error", e.getReason() != null ? e.getReason() : "Google auth failed"));
+        }
+    }
+
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> login(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        authRateLimiter.checkLoginLimit(request);
         String email = body.get("email");
         String password = body.get("password");
         if (email == null || password == null) {
@@ -86,13 +118,34 @@ public class StudentAuthController {
         if (accountId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         StudentAccount account = studentAccountService.getById(accountId);
         if (account == null) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(Map.of(
-                "studentAccountId", account.getId(),
-                "email", account.getEmail(),
-                "firstName", account.getFirstName(),
-                "lastName", account.getLastName() != null ? account.getLastName() : "",
-                "linkedStudentIds", account.getLinkedStudentIds()
-        ));
+        java.util.Map<String, Object> resp = new java.util.HashMap<>();
+        resp.put("studentAccountId", account.getId());
+        resp.put("email", account.getEmail());
+        resp.put("firstName", account.getFirstName());
+        resp.put("lastName", account.getLastName() != null ? account.getLastName() : "");
+        resp.put("linkedStudentIds", account.getLinkedStudentIds());
+        if (account.getPhotoUrl() != null) resp.put("photoUrl", account.getPhotoUrl());
+        return ResponseEntity.ok(resp);
+    }
+
+    @PatchMapping("/me")
+    public ResponseEntity<?> updateMe(
+            @RequestHeader(value = "X-Student-Token", required = false) String tokenHeader,
+            @RequestBody Map<String, String> body) {
+        String accountId = extractAccountId(tokenHeader);
+        if (accountId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        try {
+            Map<String, Object> result = studentAccountService.updateAccount(
+                    accountId,
+                    body.get("firstName"),
+                    body.get("lastName"),
+                    body.get("currentPassword"),
+                    body.get("newPassword")
+            );
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     @PostMapping("/link")
@@ -108,6 +161,81 @@ public class StudentAuthController {
         try {
             studentAccountService.linkToStudent(accountId, studentId);
             return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /** Returns lesson history for all linked student profiles. */
+    @GetMapping("/history")
+    public ResponseEntity<?> getHistory(
+            @RequestHeader(value = "X-Student-Token", required = false) String tokenHeader) {
+        String accountId = extractAccountId(tokenHeader);
+        if (accountId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        List<StudentSessionHistoryDto> history = studentAccountService.getStudentHistory(accountId);
+        return ResponseEntity.ok(history);
+    }
+
+    /** Returns the LessonRecap for a snapshot. Validates ownership. */
+    @GetMapping("/snapshot/{snapshotId}/recap")
+    public ResponseEntity<?> getSnapshotRecap(
+            @PathVariable String snapshotId,
+            @RequestHeader(value = "X-Student-Token", required = false) String tokenHeader) {
+        String accountId = extractAccountId(tokenHeader);
+        if (accountId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        if (!isSnapshotOwnedByAccount(snapshotId, accountId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        LessonRecap recap = lessonRecapRepository.findBySnapshotId(snapshotId);
+        if (recap == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(recap);
+    }
+
+    /** Returns slide URLs for a snapshot (for replay). Validates ownership. */
+    @GetMapping("/snapshot/{snapshotId}/slides")
+    public ResponseEntity<?> getSnapshotSlides(
+            @PathVariable String snapshotId,
+            @RequestHeader(value = "X-Student-Token", required = false) String tokenHeader) {
+        String accountId = extractAccountId(tokenHeader);
+        if (accountId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        if (!isSnapshotOwnedByAccount(snapshotId, accountId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        SessionSnapshot snapshot = sessionSnapshotRepository.findById(snapshotId);
+        if (snapshot == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(snapshot.getSlideUrls());
+    }
+
+    /**
+     * Ownership check: snapshotId must belong to one of the account's linked student profiles.
+     * Prevents cross-account data access.
+     */
+    private boolean isSnapshotOwnedByAccount(String snapshotId, String accountId) {
+        StudentAccount account = studentAccountService.getById(accountId);
+        if (account == null) return false;
+        for (String studentId : account.getLinkedStudentIds()) {
+            SessionSnapshot snap = sessionSnapshotRepository.findById(snapshotId);
+            if (snap != null && studentId.equals(snap.getStudentId())) return true;
+        }
+        return false;
+    }
+
+    /** Updates the student account's avatar photo URL. */
+    @PatchMapping("/me/photo")
+    public ResponseEntity<?> updatePhoto(
+            @RequestHeader(value = "X-Student-Token", required = false) String tokenHeader,
+            @RequestBody Map<String, String> body) {
+        String accountId = extractAccountId(tokenHeader);
+        if (accountId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        String photoUrl = body.get("photoUrl");
+        if (photoUrl == null || photoUrl.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "photoUrl required"));
+        }
+        try {
+            Map<String, Object> result = studentAccountService.updatePhotoUrl(accountId, photoUrl);
+            return ResponseEntity.ok(result);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

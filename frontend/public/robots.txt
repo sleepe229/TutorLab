@@ -1,0 +1,62 @@
+User-agent: *
+Allow: /
+Allow: /tutors
+Allow: /privacy
+Allow: /terms
+
+Disallow: /home
+Disallow: /settings
+Disallow: /live/
+Disallow: /student/
+Disallow: /schedule
+Disallow: /me
+Disallow: /invite/
+Disallow: /s/
+Disallow: /join/
+Disallow: /chat
+Disallow: /api/
+
+# AI search crawlers — explicitly allowed for discovery
+User-agent: GPTBot
+Allow: /tutors
+Allow: /privacy
+Allow: /terms
+Disallow: /home
+Disallow: /settings
+Disallow: /live/
+Disallow: /student/
+Disallow: /schedule
+Disallow: /me
+Disallow: /invite/
+Disallow: /s/
+Disallow: /api/
+
+User-agent: OAI-SearchBot
+Allow: /tutors
+Allow: /privacy
+Allow: /terms
+Disallow: /api/
+
+User-agent: ClaudeBot
+Allow: /tutors
+Allow: /privacy
+Allow: /terms
+Disallow: /api/
+
+User-agent: PerplexityBot
+Allow: /tutors
+Allow: /privacy
+Allow: /terms
+Disallow: /api/
+
+# Training-only crawlers — disallow
+User-agent: CCBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: cohere-ai
+Disallow: /
+
+Sitemap: https://tutorlab.onrender.com/sitemap.xml

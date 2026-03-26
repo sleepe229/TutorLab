@@ -16,6 +16,8 @@ import project.TutorLab.dto.TutorResponseDto;
 import project.TutorLab.dto.TutorUpdateDto;
 import project.TutorLab.model.Tutor;
 import project.TutorLab.repository.TutorRepository;
+import project.TutorLab.service.GoogleAuthService;
+import project.TutorLab.service.IndexNowService;
 import project.TutorLab.service.TutorService;
 
 import java.util.ArrayList;
@@ -41,11 +43,20 @@ public class TutorServiceImpl implements TutorService {
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private IndexNowService indexNowService;
+
+    @Autowired
+    private GoogleAuthService googleAuthService;
+
     @Value("${app.jwt.refresh-ttl-days:30}")
     private long refreshTtlDays;
 
     @Override
     public TutorResponseDto registerTutor(TutorRegistrationDto registrationDto) {
+        if (registrationDto.getPassword() == null || registrationDto.getPassword().length() < 8) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Пароль должен содержать не менее 8 символов");
+        }
         if (tutorRepository.existsByLogin(registrationDto.getLogin())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Пользователь с таким логином уже существует");
         }
@@ -101,11 +112,18 @@ public class TutorServiceImpl implements TutorService {
         if (updateDto.getHourlyRate() != null) {
             tutor.setHourlyRate(updateDto.getHourlyRate());
         }
+        boolean wasPublic = tutor.isPublicProfile();
         if (updateDto.getIsPublicProfile() != null) {
             tutor.setPublicProfile(updateDto.getIsPublicProfile());
         }
 
         tutorRepository.save(tutor);
+
+        // Notify Bing/Yandex when a tutor first makes their profile public
+        if (!wasPublic && tutor.isPublicProfile()) {
+            indexNowService.submitUrl("https://tutorlab.onrender.com/tutors");
+        }
+
         return convertToResponseDto(tutor);
     }
 
@@ -131,7 +149,13 @@ public class TutorServiceImpl implements TutorService {
     @Override
     public List<TutorResponseDto> getPublicTutors() {
         return tutorRepository.findAllPublic().stream()
-                .map(this::convertToResponseDto)
+                .map(t -> {
+                    TutorResponseDto dto = convertToResponseDto(t);
+                    // Strip private fields before exposing publicly
+                    dto.setLogin(null);
+                    dto.setStudentIds(null);
+                    return dto;
+                })
                 .collect(Collectors.toList());
     }
 
@@ -147,6 +171,48 @@ public class TutorServiceImpl implements TutorService {
         dto.setHourlyRate(tutor.getHourlyRate());
         dto.setPublicProfile(tutor.isPublicProfile());
         return dto;
+    }
+
+    @Override
+    public TutorResponseDto googleAuth(String idToken) {
+        GoogleAuthService.GoogleUserInfo info = googleAuthService.verify(idToken);
+
+        // 1. Look up by Google sub
+        Tutor tutor = tutorRepository.findByGoogleId(info.sub());
+
+        // 2. Fall back to email lookup (link existing password-based account)
+        if (tutor == null && info.email() != null) {
+            tutor = tutorRepository.findByEmail(info.email().toLowerCase());
+        }
+
+        // 3. Create new account
+        if (tutor == null) {
+            String login = generateUniqueLogin(info.email(), info.fullName());
+            tutor = new Tutor(UUID.randomUUID().toString(),
+                info.fullName() != null ? info.fullName() : info.email(),
+                login,
+                null);
+            tutor.setStudentIds(new ArrayList<>());
+            if (info.pictureUrl() != null) tutor.setPhotoUrl(info.pictureUrl());
+            log.info("Created new tutor account via Google OAuth: sub={}", info.sub());
+        }
+
+        // 4. Attach Google ID and email if not already set
+        if (tutor.getGoogleId() == null) tutor.setGoogleId(info.sub());
+        if (tutor.getEmail() == null && info.email() != null) tutor.setEmail(info.email().toLowerCase());
+
+        tutorRepository.save(tutor);
+        return buildLoginResponse(tutor);
+    }
+
+    private String generateUniqueLogin(String email, String fullName) {
+        String base = (email != null ? email.split("@")[0] : fullName)
+            .replaceAll("[^a-zA-Z0-9_]", "_").toLowerCase();
+        if (base.length() > 16) base = base.substring(0, 16);
+        if (!tutorRepository.existsByLogin(base)) return base;
+        // Add short random hex suffix to resolve collision
+        String suffix = Long.toHexString(System.currentTimeMillis()).substring(8);
+        return base.substring(0, Math.min(base.length(), 12)) + "_" + suffix;
     }
 
     private TutorResponseDto buildLoginResponse(Tutor tutor) {

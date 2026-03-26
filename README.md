@@ -75,12 +75,22 @@ cd frontend && npm test
 Unit-тесты: JwtService, AuthInterceptor, TutorService, LiveSessionService.
 Интеграционные: TutorController через Testcontainers с реальным Redis.
 
+## Локальное тестирование в Docker
+
+Проверить prod-сборку локально, не трогая production-данные:
+
+```bash
+docker compose -f docker-compose.local.yml up --build
+```
+
+Приложение доступно на `http://localhost:8080`
+
 ## Продакшн
 
 ```bash
-docker-compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 Собирает один Docker-образ: Spring Boot + собранный frontend. Nginx проксирует `/api`, `/ws` на бэкенд и отдаёт SPA для остального.
 
-Переменные окружения: `REDIS_PASSWORD`, `JWT_SECRET`, `APP_BASE_URL` — см. `.env.example`.
+Переменные окружения: `REDIS_PASSWORD`, `JWT_SECRET`, `APP_CORS_ALLOWED_ORIGINS` — см. `.env.example`.

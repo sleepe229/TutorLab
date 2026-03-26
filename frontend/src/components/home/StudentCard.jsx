@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { API_BASE } from '../../config.js';
+import { parseLocalDate } from '../../utils/date';
 import './StudentCard.css';
 
-function StudentCard({ student, onClick, onDelete, onToggleFavorite, tutorId, onStartLesson }) {
+function StudentCard({ student, onClick, onDelete, onToggleFavorite, tutorId, onStartLesson, onMessage }) {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
 
@@ -18,36 +19,37 @@ function StudentCard({ student, onClick, onDelete, onToggleFavorite, tutorId, on
   const lessonCount = student.lessonDates?.length || 0;
   const materialCount = student.materialUrls?.length || 0;
 
-  // Parse date from "YYYY-MM-DD|HH:MM|note" strings
-  const parseLessonDate = (d) => new Date(d.includes('|') ? d.split('|')[0] : d);
+  // Parse date from "YYYY-MM-DD|HH:MM|note" strings using local timezone
+  const parseLessonDate = (d) => parseLocalDate(d.includes('|') ? d.split('|')[0] : d);
 
-  // Upcoming lesson
+  // Upcoming lesson (compare at day boundary, not millisecond)
   const now = new Date();
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
   const upcomingLesson = student.lessonDates
     ?.map(parseLessonDate)
-    .filter(d => !isNaN(d) && d > now)
+    .filter(d => !isNaN(d) && d >= todayStart)
     .sort((a, b) => a - b)[0] || null;
 
   // Last past lesson
   const lastLesson = student.lessonDates
     ?.map(parseLessonDate)
-    .filter(d => !isNaN(d) && d <= now)
+    .filter(d => !isNaN(d) && d < todayStart)
     .sort((a, b) => b - a)[0] || null;
 
   const formatDate = (date) => {
     if (!date) return null;
-    const days = Math.floor((now - date) / 86400000);
-    if (days === 0) return 'Сегодня';
-    if (days === 1) return 'Вчера';
-    if (days < 7) return `${days} дн. назад`;
+    const daysDiff = Math.round((todayStart - date) / 86400000);
+    if (daysDiff === 0) return 'Сегодня';
+    if (daysDiff === 1) return 'Вчера';
+    if (daysDiff < 7) return `${daysDiff} дн. назад`;
     return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
   };
 
   const formatUpcoming = (date) => {
     if (!date) return null;
-    const days = Math.floor((date - now) / 86400000);
-    if (days === 0) return 'Сегодня';
-    if (days === 1) return 'Завтра';
+    const daysDiff = Math.round((date - todayStart) / 86400000);
+    if (daysDiff === 0) return 'Сегодня';
+    if (daysDiff === 1) return 'Завтра';
     return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
   };
 
@@ -176,6 +178,11 @@ function StudentCard({ student, onClick, onDelete, onToggleFavorite, tutorId, on
           <button className="sc-btn sc-btn--primary" onClick={handleStartLesson} aria-label="Начать урок">
             Начать урок →
           </button>
+          {student.studentAccountId && onMessage && (
+            <button className="sc-btn sc-btn--secondary" onClick={(e) => { e.stopPropagation(); onMessage(student); }} aria-label="Написать сообщение">
+              Написать
+            </button>
+          )}
         </div>
       </div>
     </article>
