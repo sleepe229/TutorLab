@@ -216,6 +216,52 @@ export const chatApi = {
   markReadTutor: (chatId) => api.post(`/chats/${chatId}/read/tutor`),
   markReadStudent: (chatId, token) =>
     api.post(`/chats/${chatId}/read/student`, {}, { headers: { 'X-Student-Token': token } }),
+
+  // Message edit / delete
+  editMessage: (chatId, messageId, text, token) =>
+    token
+      ? api.put(`/chats/${chatId}/messages/${messageId}`, { text }, { headers: { 'X-Student-Token': token } })
+      : api.put(`/chats/${chatId}/messages/${messageId}`, { text }),
+  deleteMessage: (chatId, messageId, token) =>
+    token
+      ? api.delete(`/chats/${chatId}/messages/${messageId}`, { headers: { 'X-Student-Token': token } })
+      : api.delete(`/chats/${chatId}/messages/${messageId}`),
+
+  // Group chats
+  createGroup: (groupName, participantIds, creatorName, token) =>
+    token
+      ? api.post('/chats/groups', { groupName, participantIds, creatorName }, { headers: { 'X-Student-Token': token } })
+      : api.post('/chats/groups', { groupName, participantIds, creatorName }),
+  getGroupsForParticipant: (participantId, token) =>
+    token
+      ? api.get(`/chats/groups/participant/${participantId}`, { headers: { 'X-Student-Token': token } })
+      : api.get(`/chats/groups/participant/${participantId}`),
+  addGroupMember: (chatId, participantId, token) =>
+    token
+      ? api.post(`/chats/groups/${chatId}/members`, { participantId }, { headers: { 'X-Student-Token': token } })
+      : api.post(`/chats/groups/${chatId}/members`, { participantId }),
+  removeGroupMember: (chatId, participantId, token) =>
+    token
+      ? api.delete(`/chats/groups/${chatId}/members/${participantId}`, { headers: { 'X-Student-Token': token } })
+      : api.delete(`/chats/groups/${chatId}/members/${participantId}`),
+
+  // Moderation
+  blockChat: (chatId, token) =>
+    token
+      ? api.post(`/chats/${chatId}/block`, {}, { headers: { 'X-Student-Token': token } })
+      : api.post(`/chats/${chatId}/block`),
+  unblockChat: (chatId, token) =>
+    token
+      ? api.post(`/chats/${chatId}/unblock`, {}, { headers: { 'X-Student-Token': token } })
+      : api.post(`/chats/${chatId}/unblock`),
+  hideChat: (chatId, token) =>
+    token
+      ? api.post(`/chats/${chatId}/hide`, {}, { headers: { 'X-Student-Token': token } })
+      : api.post(`/chats/${chatId}/hide`),
+  unhideChat: (chatId, token) =>
+    token
+      ? api.post(`/chats/${chatId}/unhide`, {}, { headers: { 'X-Student-Token': token } })
+      : api.post(`/chats/${chatId}/unhide`),
 };
 
 export const studentAccountApi = {
