@@ -7,6 +7,7 @@ import org.hibernate.type.SqlTypes;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -32,7 +33,7 @@ public class ProgressNote implements Serializable {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "skill_tags", columnDefinition = "jsonb")
-    private List<String> skillTags;
+    private List<String> skillTags = new ArrayList<>();
 
     private Integer rating;
 
