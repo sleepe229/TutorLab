@@ -60,7 +60,7 @@ public class Student {
     private Map<String, String> lessonPayments;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "student_id")
+    @JoinColumn(name = "student_id", nullable = false)
     @OrderBy("date DESC")
     private List<ProgressNote> progressNotes = new ArrayList<>();
 
