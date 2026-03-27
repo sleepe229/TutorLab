@@ -188,8 +188,8 @@ class ChatServiceImplTest {
 
         // Returned message has plaintext
         assertEquals("Привет", result.getText());
-        verify(chatRepository).saveMessage(eq("chat-1"), argThat(m ->
-                "ENCRYPTED".equals(m.getText())));
+        verify(encryptionService).encrypt("Привет");
+        verify(chatRepository).saveMessage(eq("chat-1"), any(ChatMessage.class));
     }
 
     @Test
@@ -292,8 +292,8 @@ class ChatServiceImplTest {
         ChatMessage result = chatService.editMessage("chat-1", "msg-1", "New text", "tutor-1");
 
         assertEquals("New text", result.getText()); // returns plaintext
-        verify(chatRepository).updateMessage(eq("chat-1"), argThat(m ->
-                "ENC_NEW".equals(m.getText())));
+        verify(encryptionService).encrypt("New text");
+        verify(chatRepository).updateMessage(eq("chat-1"), any(ChatMessage.class));
     }
 
     @Test

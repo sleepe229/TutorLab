@@ -86,7 +86,6 @@ jobs:
 
       - name: Run unit tests
         run: npx vitest run --reporter=verbose
-        continue-on-error: true  # не блокировать CI до написания тестов
 
       - name: Build
         run: npx vite build
