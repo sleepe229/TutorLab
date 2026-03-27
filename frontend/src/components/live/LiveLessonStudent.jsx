@@ -199,8 +199,32 @@ function LiveLessonStudent() {
 
   // ── Student camera ────────────────────────────────────────────────────
   const toggleStudentCamera = async () => {
-    if (!studentRtcRef.current) {
+    if (isVideoEnabled) {
+      // Turn off: stop stream, release camera hardware, restart audio-only if mic was on
+      studentRtcRef.current?.stopStream();
+      studentRtcRef.current = null;
+      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      setIsVideoEnabled(false);
+
+      if (isAudioEnabled) {
+        if (!clientRef.current) { setIsAudioEnabled(false); return; }
+        const rtc = new WebRTCService(clientRef.current, sessionId, true, 'student', 'student');
+        rtc.onRemoteStream = () => {};
+        const ok = await rtc.startStream({ audio: true, video: false });
+        if (ok) {
+          studentRtcRef.current = rtc;
+        } else {
+          setIsAudioEnabled(false);
+        }
+      }
+    } else {
+      // Turn on: need audio+video stream
       if (!clientRef.current) return;
+      // Stop existing audio-only stream if running
+      if (studentRtcRef.current) {
+        studentRtcRef.current.stopStream();
+        studentRtcRef.current = null;
+      }
       // role='student' (student-initiated), sender='student'
       const rtc = new WebRTCService(clientRef.current, sessionId, true, 'student', 'student');
       rtc.onRemoteStream = () => {};
@@ -213,10 +237,6 @@ function LiveLessonStudent() {
       } else {
         toast.error(mediaErrorMessage(rtc, 'камере'));
       }
-    } else {
-      const enabled = studentRtcRef.current.toggleVideo();
-      setIsVideoEnabled(enabled);
-      if (!enabled && localVideoRef.current) localVideoRef.current.srcObject = null;
     }
   };
 

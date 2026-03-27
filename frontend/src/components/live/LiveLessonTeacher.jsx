@@ -460,9 +460,25 @@ function LiveLessonTeacher({ tutorId }) {
   // ── Camera (independent of mic — starts audio+video together) ────────
   const toggleCamera = async () => {
     if (isVideoEnabled) {
-      webrtcRef.current?.toggleVideo();
+      // Stop stream to release camera hardware, restart audio-only if mic was on
+      const wasAudioEnabled = isAudioEnabled;
+      webrtcRef.current?.stopStream();
+      webrtcRef.current = null;
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       setIsVideoEnabled(false);
+
+      if (wasAudioEnabled) {
+        if (!clientRef.current || !session) { setIsAudioEnabled(false); setIsMuted(false); return; }
+        const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher', 'teacher');
+        rtc.onRemoteStream = () => {};
+        const ok = await rtc.startStream({ audio: true, video: false });
+        if (ok) {
+          webrtcRef.current = rtc;
+        } else {
+          setIsAudioEnabled(false);
+          setIsMuted(false);
+        }
+      }
       return;
     }
 
