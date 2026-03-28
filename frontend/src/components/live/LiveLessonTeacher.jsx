@@ -465,7 +465,7 @@ function LiveLessonTeacher({ tutorId }) {
   const toggleCamera = async () => {
     if (isVideoEnabled) {
       // disableCamera() uses replaceTrack(null) + track.stop() — peer and audio are untouched
-      webrtcRef.current.disableCamera();
+      await webrtcRef.current.disableCamera();
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       setIsVideoEnabled(false);
       return;

@@ -188,11 +188,16 @@ export class WebRTCService {
   }
 
   // Stop and release camera hardware without touching the peer connection or audio.
-  // Uses replaceTrack(null) so the remote sees the video stop before the track is freed.
-  disableCamera() {
+  // Awaits replaceTrack(null) before stopping the track to avoid a local race condition
+  // where the sender could still reference a stopped track.
+  async disableCamera() {
     const track = this.localStream?.getVideoTracks()[0];
     if (!track) return;
-    this._videoSender?.replaceTrack(null);
+    try {
+      await this._videoSender?.replaceTrack(null);
+    } catch (err) {
+      console.error('replaceTrack(null) failed:', err);
+    }
     track.stop();
     this.localStream?.removeTrack(track);
   }
@@ -221,7 +226,15 @@ export class WebRTCService {
       return false;
     }
 
-    await this._videoSender.replaceTrack(track);
+    try {
+      await this._videoSender.replaceTrack(track);
+    } catch (err) {
+      console.error('replaceTrack failed:', err);
+      track.stop();
+      this.lastError = 'peer';
+      return false;
+    }
+
     this.localStream?.addTrack(track);
     return true;
   }
