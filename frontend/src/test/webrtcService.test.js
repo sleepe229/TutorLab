@@ -578,6 +578,148 @@ describe('enableCamera()', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// hasAudioSender() / disableAudio() / enableAudio()
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('hasAudioSender()', () => {
+  it('returns false before any stream is started', () => {
+    const svc = new WebRTCService(wsClient, 'sess-1', true);
+    expect(svc.hasAudioSender()).toBe(false);
+  });
+
+  it('returns true after startStream with audio', async () => {
+    const { svc } = await startAudioOnly();
+    expect(svc.hasAudioSender()).toBe(true);
+  });
+
+  it('returns true after startStream with audio+video', async () => {
+    const { svc } = await startWithVideo();
+    expect(svc.hasAudioSender()).toBe(true);
+  });
+
+  it('returns false after stopStream', async () => {
+    const { svc } = await startAudioOnly();
+    svc.stopStream();
+    expect(svc.hasAudioSender()).toBe(false);
+  });
+});
+
+describe('disableAudio()', () => {
+  it('is a no-op when there is no audio track', async () => {
+    const stream = makeStream({ audio: false, video: true });
+    getUserMedia.mockResolvedValue(stream);
+    const svc = new WebRTCService(wsClient, 'sess-1', true);
+    await svc.startStream({ audio: false, video: true });
+    await expect(svc.disableAudio()).resolves.not.toThrow();
+  });
+
+  it('calls replaceTrack(null), stops the track, and removes it from stream', async () => {
+    const { svc, stream } = await startAudioOnly();
+    const audioTrack = stream.getAudioTracks()[0];
+
+    await svc.disableAudio();
+
+    expect(svc._audioSender.replaceTrack).toHaveBeenCalledWith(null);
+    expect(audioTrack.stop).toHaveBeenCalled();
+    expect(stream.removeTrack).toHaveBeenCalledWith(audioTrack);
+  });
+
+  it('still stops the track even if replaceTrack(null) rejects', async () => {
+    const { svc, stream } = await startAudioOnly();
+    const audioTrack = stream.getAudioTracks()[0];
+    svc._audioSender.replaceTrack.mockRejectedValue(new Error('sender closed'));
+
+    await svc.disableAudio();
+
+    expect(audioTrack.stop).toHaveBeenCalled();
+    expect(stream.removeTrack).toHaveBeenCalledWith(audioTrack);
+  });
+
+  it('preserves _audioSender so enableAudio() can reuse it', async () => {
+    const { svc } = await startAudioOnly();
+    const senderBefore = svc._audioSender;
+    await svc.disableAudio();
+    expect(svc._audioSender).toBe(senderBefore);
+  });
+});
+
+describe('enableAudio()', () => {
+  it('returns false immediately when _audioSender is null', async () => {
+    const svc = new WebRTCService(wsClient, 'sess-1', true);
+    expect(await svc.enableAudio()).toBe(false);
+  });
+
+  it.each([
+    ['NotAllowedError',      'permission'],
+    ['PermissionDeniedError','permission'],
+    ['NotReadableError',     'in-use'],
+    ['AbortError',           'in-use'],
+    ['UnknownError',         'unavailable'],
+  ])('getUserMedia %s → lastError="%s", returns false', async (errName, expected) => {
+    const { svc } = await startAudioOnly();
+    await svc.disableAudio();
+    const err = Object.assign(new Error(), { name: errName });
+    getUserMedia.mockRejectedValue(err);
+    const ok = await svc.enableAudio();
+    expect(ok).toBe(false);
+    expect(svc.lastError).toBe(expected);
+  });
+
+  it('stops the new track and sets lastError="peer" when replaceTrack rejects', async () => {
+    const { svc } = await startAudioOnly();
+    await svc.disableAudio();
+
+    const newTrack = makeTrack('audio');
+    getUserMedia.mockResolvedValue({ getAudioTracks: () => [newTrack] });
+    svc._audioSender.replaceTrack.mockRejectedValue(new Error('ICE failed'));
+
+    const ok = await svc.enableAudio();
+
+    expect(ok).toBe(false);
+    expect(newTrack.stop).toHaveBeenCalled();
+    expect(svc.lastError).toBe('peer');
+  });
+
+  it('does not leak the new track to localStream on replaceTrack failure', async () => {
+    const { svc, stream } = await startAudioOnly();
+    await svc.disableAudio();
+
+    getUserMedia.mockResolvedValue({ getAudioTracks: () => [makeTrack('audio')] });
+    svc._audioSender.replaceTrack.mockRejectedValue(new Error('fail'));
+
+    await svc.enableAudio();
+
+    expect(stream.addTrack).not.toHaveBeenCalled();
+  });
+
+  it('calls replaceTrack with the new track and adds it to localStream', async () => {
+    const { svc, stream } = await startAudioOnly();
+    await svc.disableAudio();
+
+    const newTrack = makeTrack('audio');
+    getUserMedia.mockResolvedValue({ getAudioTracks: () => [newTrack] });
+
+    const ok = await svc.enableAudio();
+
+    expect(ok).toBe(true);
+    expect(svc._audioSender.replaceTrack).toHaveBeenCalledWith(newTrack);
+    expect(stream.addTrack).toHaveBeenCalledWith(newTrack);
+  });
+
+  it('getUserMedia is called with correct audio constraints', async () => {
+    const { svc } = await startAudioOnly();
+    await svc.disableAudio();
+    getUserMedia.mockResolvedValue({ getAudioTracks: () => [makeTrack('audio')] });
+
+    await svc.enableAudio();
+
+    expect(getUserMedia).toHaveBeenCalledWith({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // toggleMute()
 // ─────────────────────────────────────────────────────────────────────────────
 

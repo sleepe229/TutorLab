@@ -47,6 +47,7 @@ function LiveLessonStudent() {
   useEffect(() => {
     if (isVideoEnabled && localVideoRef.current && studentRtcRef.current) {
       localVideoRef.current.srcObject = studentRtcRef.current.getLocalStream();
+      localVideoRef.current.play().catch(() => {});
     }
   }, [isVideoEnabled]);
   // Note: teacher video assignment is handled via ref callback directly on the <video> element
@@ -181,33 +182,57 @@ function LiveLessonStudent() {
   const toggleStudentAudio = async () => {
     if (!isAudioEnabled) {
       if (!clientRef.current) return;
-      // role='student' (student-initiated), sender='student'
-      const rtc = new WebRTCService(clientRef.current, sessionId, true, 'student', 'student');
-      rtc.onRemoteStream = () => {};
-      const ok = await rtc.startStream({ audio: true, video: false });
-      if (ok) {
-        studentRtcRef.current = rtc;
-        setIsAudioEnabled(true);
+      if (studentRtcRef.current?.hasAudioSender()) {
+        // Camera is active and audio was disabled: re-inject mic track, no reconnect
+        const ok = await studentRtcRef.current.enableAudio();
+        if (ok) {
+          setIsAudioEnabled(true);
+        } else {
+          toast.error(mediaErrorMessage(studentRtcRef.current, 'микрофону'));
+        }
       } else {
-        toast.error(mediaErrorMessage(rtc, 'микрофону'));
+        // No peer yet: create audio-only peer
+        // role='student' (student-initiated), sender='student'
+        const rtc = new WebRTCService(clientRef.current, sessionId, true, 'student', 'student');
+        rtc.onRemoteStream = () => {};
+        const ok = await rtc.startStream({ audio: true, video: false });
+        if (ok) {
+          studentRtcRef.current = rtc;
+          setIsAudioEnabled(true);
+        } else {
+          toast.error(mediaErrorMessage(rtc, 'микрофону'));
+        }
       }
     } else {
-      studentRtcRef.current?.stopStream();
-      studentRtcRef.current = null;
-      if (localVideoRef.current) localVideoRef.current.srcObject = null;
-      setIsAudioEnabled(false);
-      setIsVideoEnabled(false);
-      setIsMuted(false);
+      if (isVideoEnabled) {
+        // Camera still active: disable mic track only, keep peer and video alive
+        await studentRtcRef.current.disableAudio();
+        setIsAudioEnabled(false);
+        setIsMuted(false);
+      } else {
+        // Nothing else active: full disconnect
+        studentRtcRef.current?.stopStream();
+        studentRtcRef.current = null;
+        if (localVideoRef.current) { localVideoRef.current.srcObject = null; localVideoRef.current.load(); }
+        setIsAudioEnabled(false);
+        setIsVideoEnabled(false);
+        setIsMuted(false);
+      }
     }
   };
 
   // ── Student camera ────────────────────────────────────────────────────
   const toggleStudentCamera = async () => {
     if (isVideoEnabled) {
-      // disableCamera() uses replaceTrack(null) + track.stop() — peer and audio are untouched
+      // disableCamera() uses replaceTrack(null) + track.stop() — audio is untouched
       await studentRtcRef.current.disableCamera();
-      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      if (localVideoRef.current) { localVideoRef.current.srcObject = null; localVideoRef.current.load(); }
       setIsVideoEnabled(false);
+      if (!isAudioEnabled) {
+        // Audio also inactive: full disconnect
+        studentRtcRef.current?.stopStream();
+        studentRtcRef.current = null;
+      }
     } else {
       if (!clientRef.current) return;
 

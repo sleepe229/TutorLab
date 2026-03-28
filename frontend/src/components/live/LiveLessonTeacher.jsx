@@ -80,8 +80,10 @@ function LiveLessonTeacher({ tutorId }) {
     if (localVideoRef.current) {
       if (isScreenSharing && screenStreamRef.current) {
         localVideoRef.current.srcObject = screenStreamRef.current;
+        localVideoRef.current.play().catch(() => {});
       } else if (isVideoEnabled && webrtcRef.current) {
         localVideoRef.current.srcObject = webrtcRef.current.getLocalStream();
+        localVideoRef.current.play().catch(() => {});
       }
     }
   }, [isVideoEnabled, isScreenSharing]);
@@ -434,23 +436,42 @@ function LiveLessonTeacher({ tutorId }) {
   const toggleAudio = async () => {
     if (!isAudioEnabled) {
       if (!clientRef.current) { toast.error('WebSocket не подключён'); return; }
-      // role='teacher' (teacher-initiated), sender='teacher'
-      const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher', 'teacher');
-      rtc.onRemoteStream = () => {}; // teacher's mic peer — no remote video expected here
-      const ok = await rtc.startStream({ audio: true, video: false });
-      if (ok) {
-        webrtcRef.current = rtc;
-        setIsAudioEnabled(true);
+      if (webrtcRef.current?.hasAudioSender()) {
+        // Camera is active and audio was disabled: re-inject mic track, no reconnect
+        const ok = await webrtcRef.current.enableAudio();
+        if (ok) {
+          setIsAudioEnabled(true);
+        } else {
+          toast.error(mediaErrorMessage(webrtcRef.current, 'микрофону'));
+        }
       } else {
-        toast.error(mediaErrorMessage(rtc, 'микрофону'));
+        // No peer yet: create audio-only peer
+        // role='teacher' (teacher-initiated), sender='teacher'
+        const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher', 'teacher');
+        rtc.onRemoteStream = () => {};
+        const ok = await rtc.startStream({ audio: true, video: false });
+        if (ok) {
+          webrtcRef.current = rtc;
+          setIsAudioEnabled(true);
+        } else {
+          toast.error(mediaErrorMessage(rtc, 'микрофону'));
+        }
       }
     } else {
-      webrtcRef.current?.stopStream();
-      webrtcRef.current = null;
-      if (localVideoRef.current) localVideoRef.current.srcObject = null;
-      setIsAudioEnabled(false);
-      setIsVideoEnabled(false);
-      setIsMuted(false);
+      if (isVideoEnabled) {
+        // Camera still active: disable mic track only, keep peer and video alive
+        await webrtcRef.current.disableAudio();
+        setIsAudioEnabled(false);
+        setIsMuted(false);
+      } else {
+        // Nothing else active: full disconnect
+        webrtcRef.current?.stopStream();
+        webrtcRef.current = null;
+        if (localVideoRef.current) { localVideoRef.current.srcObject = null; localVideoRef.current.load(); }
+        setIsAudioEnabled(false);
+        setIsVideoEnabled(false);
+        setIsMuted(false);
+      }
     }
   };
 
@@ -464,10 +485,15 @@ function LiveLessonTeacher({ tutorId }) {
   // ── Camera (independent of mic — starts audio+video together) ────────
   const toggleCamera = async () => {
     if (isVideoEnabled) {
-      // disableCamera() uses replaceTrack(null) + track.stop() — peer and audio are untouched
+      // disableCamera() uses replaceTrack(null) + track.stop() — audio is untouched
       await webrtcRef.current.disableCamera();
-      if (localVideoRef.current) localVideoRef.current.srcObject = null;
+      if (localVideoRef.current) { localVideoRef.current.srcObject = null; localVideoRef.current.load(); }
       setIsVideoEnabled(false);
+      if (!isAudioEnabled) {
+        // Audio also inactive: full disconnect
+        webrtcRef.current?.stopStream();
+        webrtcRef.current = null;
+      }
       return;
     }
 

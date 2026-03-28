@@ -20,6 +20,7 @@ export class WebRTCService {
     this.remoteStream = null;
     this.onRemoteStream = null;
     this.lastError = null; // 'permission' | 'in-use' | 'unavailable' | 'peer'
+    this._audioSender = null; // RTCRtpSender for the audio track, if present
     this._videoSender = null; // RTCRtpSender for the video track, if present
   }
 
@@ -121,6 +122,7 @@ export class WebRTCService {
       return false;
     }
 
+    this._audioSender = this.peer._pc.getSenders().find(s => s.track?.kind === 'audio') ?? null;
     if (video) {
       this._videoSender = this.peer._pc.getSenders().find(s => s.track?.kind === 'video') ?? null;
     }
@@ -143,12 +145,68 @@ export class WebRTCService {
     this.localStream = null;
     this.peer = null;
     this.remoteStream = null;
+    this._audioSender = null;
     this._videoSender = null;
   }
 
   // True once the ICE connection is established
   isConnected() {
     return this.peer?.connected ?? false;
+  }
+
+  // True if this peer was started with an audio track (enables disableAudio / enableAudio)
+  hasAudioSender() {
+    return this._audioSender !== null;
+  }
+
+  // Stop and release microphone hardware without touching the peer connection or video.
+  async disableAudio() {
+    const track = this.localStream?.getAudioTracks()[0];
+    if (!track) return;
+    try {
+      await this._audioSender?.replaceTrack(null);
+    } catch (err) {
+      console.error('replaceTrack(null) audio failed:', err);
+    }
+    track.stop();
+    this.localStream?.removeTrack(track);
+  }
+
+  // Acquire a new microphone track and inject it into the existing peer via replaceTrack.
+  // No renegotiation — video continues uninterrupted.
+  async enableAudio() {
+    this.lastError = null;
+    if (!this._audioSender) return false;
+
+    let track;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      track = stream.getAudioTracks()[0];
+    } catch (err) {
+      const name = err?.name || '';
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        this.lastError = 'permission';
+      } else if (name === 'NotReadableError' || name === 'AbortError') {
+        this.lastError = 'in-use';
+      } else {
+        this.lastError = 'unavailable';
+      }
+      return false;
+    }
+
+    try {
+      await this._audioSender.replaceTrack(track);
+    } catch (err) {
+      console.error('replaceTrack audio failed:', err);
+      track.stop();
+      this.lastError = 'peer';
+      return false;
+    }
+
+    this.localStream?.addTrack(track);
+    return true;
   }
 
   // True if this peer was started with a video track (enables disableCamera / enableCamera)
