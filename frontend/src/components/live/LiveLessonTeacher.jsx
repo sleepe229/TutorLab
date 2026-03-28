@@ -462,6 +462,7 @@ function LiveLessonTeacher({ tutorId }) {
     if (isVideoEnabled) {
       // Stop stream to release camera hardware, restart audio-only if mic was on
       const wasAudioEnabled = isAudioEnabled;
+      const wasMuted = isMuted;
       webrtcRef.current?.stopStream();
       webrtcRef.current = null;
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
@@ -474,6 +475,8 @@ function LiveLessonTeacher({ tutorId }) {
         const ok = await rtc.startStream({ audio: true, video: false });
         if (ok) {
           webrtcRef.current = rtc;
+          // Restore previous mute state: new track starts enabled, re-apply mute if needed
+          if (wasMuted) rtc.toggleMute();
         } else {
           setIsAudioEnabled(false);
           setIsMuted(false);

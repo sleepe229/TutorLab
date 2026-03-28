@@ -201,20 +201,24 @@ function LiveLessonStudent() {
   const toggleStudentCamera = async () => {
     if (isVideoEnabled) {
       // Turn off: stop stream, release camera hardware, restart audio-only if mic was on
+      const wasMuted = isMuted;
       studentRtcRef.current?.stopStream();
       studentRtcRef.current = null;
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       setIsVideoEnabled(false);
 
       if (isAudioEnabled) {
-        if (!clientRef.current) { setIsAudioEnabled(false); return; }
+        if (!clientRef.current) { setIsAudioEnabled(false); setIsMuted(false); return; }
         const rtc = new WebRTCService(clientRef.current, sessionId, true, 'student', 'student');
         rtc.onRemoteStream = () => {};
         const ok = await rtc.startStream({ audio: true, video: false });
         if (ok) {
           studentRtcRef.current = rtc;
+          // Restore previous mute state: new track starts enabled, re-apply mute if needed
+          if (wasMuted) rtc.toggleMute();
         } else {
           setIsAudioEnabled(false);
+          setIsMuted(false);
         }
       }
     } else {
