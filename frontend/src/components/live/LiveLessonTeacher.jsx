@@ -220,9 +220,14 @@ function LiveLessonTeacher({ tutorId }) {
       // Student answered teacher's offer — route to teacher's own initiator peer
       webrtcRef.current?.handleSignal(data.signal);
     } else if (data.role === 'student') {
-      // Student is initiating their own stream toward teacher
-      // If we get a new offer, destroy any stale receiver peer first
+      // Student is sending their stream toward teacher
       if (data.signal?.type === 'offer' && studentRtcRef.current) {
+        if (studentRtcRef.current.isConnected()) {
+          // Renegotiation on an established connection (e.g. student added video track)
+          studentRtcRef.current.handleSignal(data.signal);
+          return;
+        }
+        // Stale unconnected receiver — destroy and recreate below
         studentRtcRef.current.stopStream();
         studentRtcRef.current = null;
         setStudentConnected(false);
@@ -234,7 +239,6 @@ function LiveLessonTeacher({ tutorId }) {
         rtc.onRemoteStream = (stream) => {
           studentStreamRef.current = stream;
           setStudentConnected(true);
-          // Assign directly in case video element is already mounted
           if (studentVideoRef.current) studentVideoRef.current.srcObject = stream;
         };
         rtc.connect();
@@ -460,45 +464,45 @@ function LiveLessonTeacher({ tutorId }) {
   // ── Camera (independent of mic — starts audio+video together) ────────
   const toggleCamera = async () => {
     if (isVideoEnabled) {
-      // Stop stream to release camera hardware, restart audio-only if mic was on
-      const wasAudioEnabled = isAudioEnabled;
-      const wasMuted = isMuted;
-      webrtcRef.current?.stopStream();
-      webrtcRef.current = null;
+      // disableCamera() uses replaceTrack(null) + track.stop() — peer and audio are untouched
+      webrtcRef.current.disableCamera();
       if (localVideoRef.current) localVideoRef.current.srcObject = null;
       setIsVideoEnabled(false);
-
-      if (wasAudioEnabled) {
-        if (!clientRef.current || !session) { setIsAudioEnabled(false); setIsMuted(false); return; }
-        const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher', 'teacher');
-        rtc.onRemoteStream = () => {};
-        const ok = await rtc.startStream({ audio: true, video: false });
-        if (ok) {
-          webrtcRef.current = rtc;
-          // Restore previous mute state: new track starts enabled, re-apply mute if needed
-          if (wasMuted) rtc.toggleMute();
-        } else {
-          setIsAudioEnabled(false);
-          setIsMuted(false);
-        }
-      }
       return;
     }
 
     if (!clientRef.current) { toast.error('WebSocket не подключён'); return; }
     if (!session) return;
 
-    // Stop existing audio-only stream if running
-    if (webrtcRef.current) {
-      webrtcRef.current.stopStream();
-      webrtcRef.current = null;
-      setIsAudioEnabled(false);
-      setIsMuted(false);
+    if (webrtcRef.current?.hasVideoSender()) {
+      // Peer has a video sender (was disabled): re-inject track via replaceTrack, no renegotiation
+      const ok = await webrtcRef.current.enableCamera();
+      if (ok) {
+        setIsVideoEnabled(true);
+        // srcObject assigned via useEffect once video element mounts
+      } else {
+        toast.error(mediaErrorMessage(webrtcRef.current, 'камере'));
+      }
+      return;
     }
 
+    if (webrtcRef.current) {
+      // Audio-only peer exists: add video track via pc.addTrack — triggers renegotiation,
+      // audio is never interrupted
+      const ok = await webrtcRef.current.addVideoTrack();
+      if (ok) {
+        setIsVideoEnabled(true);
+        // srcObject assigned via useEffect once video element mounts
+      } else {
+        toast.error(mediaErrorMessage(webrtcRef.current, 'камере'));
+      }
+      return;
+    }
+
+    // No peer yet: create fresh audio+video peer
     // role='teacher' (teacher-initiated), sender='teacher'
     const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher', 'teacher');
-    rtc.onRemoteStream = () => {}; // teacher's camera peer — no remote video expected here
+    rtc.onRemoteStream = () => {};
     const ok = await rtc.startStream({ audio: true, video: true });
     if (ok) {
       webrtcRef.current = rtc;

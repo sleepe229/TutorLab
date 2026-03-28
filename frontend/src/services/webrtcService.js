@@ -14,18 +14,19 @@ export class WebRTCService {
     this.sessionId = sessionId;
     this.isInitiator = isInitiator;
     this.role = role;
-    this.sender = sender ?? role; // who I am; defaults to role for initiators
+    this.sender = sender ?? role;
     this.peer = null;
     this.localStream = null;
     this.remoteStream = null;
     this.onRemoteStream = null;
     this.lastError = null; // 'permission' | 'in-use' | 'unavailable' | 'peer'
+    this._videoSender = null; // RTCRtpSender for the video track, if present
   }
 
   _createPeer(stream) {
     const opts = {
       initiator: this.isInitiator,
-      trickle: false,
+      trickle: true,
       wrtc: {
         RTCPeerConnection: window.RTCPeerConnection,
         RTCSessionDescription: window.RTCSessionDescription,
@@ -46,8 +47,8 @@ export class WebRTCService {
       this.wsClient.sendWebRTC({
         type: 'signal',
         signal: data,
-        role: this.role,   // which connection: 'teacher' | 'student'
-        from: this.sender, // who sent this: 'teacher' | 'student'
+        role: this.role,
+        from: this.sender,
       });
     });
 
@@ -120,6 +121,10 @@ export class WebRTCService {
       return false;
     }
 
+    if (video) {
+      this._videoSender = this.peer._pc.getSenders().find(s => s.track?.kind === 'video') ?? null;
+    }
+
     return true;
   }
 
@@ -138,17 +143,91 @@ export class WebRTCService {
     this.localStream = null;
     this.peer = null;
     this.remoteStream = null;
+    this._videoSender = null;
+  }
+
+  // True once the ICE connection is established
+  isConnected() {
+    return this.peer?.connected ?? false;
+  }
+
+  // True if this peer was started with a video track (enables disableCamera / enableCamera)
+  hasVideoSender() {
+    return this._videoSender !== null;
+  }
+
+  // Add a video track to an existing audio-only peer via pc.addTrack().
+  // simple-peer detects onnegotiationneeded and renegotiates automatically —
+  // audio is never interrupted.
+  async addVideoTrack() {
+    this.lastError = null;
+    if (!this.peer || !this.localStream) return false;
+
+    let track;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+      });
+      track = stream.getVideoTracks()[0];
+    } catch (err) {
+      const name = err?.name || '';
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        this.lastError = 'permission';
+      } else if (name === 'NotReadableError' || name === 'AbortError') {
+        this.lastError = 'in-use';
+      } else {
+        this.lastError = 'unavailable';
+      }
+      return false;
+    }
+
+    this.localStream.addTrack(track);
+    this.peer._pc.addTrack(track, this.localStream);
+    this._videoSender = this.peer._pc.getSenders().find(s => s.track === track) ?? null;
+    return true;
+  }
+
+  // Stop and release camera hardware without touching the peer connection or audio.
+  // Uses replaceTrack(null) so the remote sees the video stop before the track is freed.
+  disableCamera() {
+    const track = this.localStream?.getVideoTracks()[0];
+    if (!track) return;
+    this._videoSender?.replaceTrack(null);
+    track.stop();
+    this.localStream?.removeTrack(track);
+  }
+
+  // Acquire a new camera track and inject it into the existing peer via replaceTrack.
+  // No renegotiation — audio continues uninterrupted.
+  async enableCamera() {
+    this.lastError = null;
+    if (!this._videoSender) return false;
+
+    let track;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+      });
+      track = stream.getVideoTracks()[0];
+    } catch (err) {
+      const name = err?.name || '';
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        this.lastError = 'permission';
+      } else if (name === 'NotReadableError' || name === 'AbortError') {
+        this.lastError = 'in-use';
+      } else {
+        this.lastError = 'unavailable';
+      }
+      return false;
+    }
+
+    await this._videoSender.replaceTrack(track);
+    this.localStream?.addTrack(track);
+    return true;
   }
 
   toggleMute() {
     const t = this.localStream?.getAudioTracks()[0];
-    if (!t) return false;
-    t.enabled = !t.enabled;
-    return t.enabled;
-  }
-
-  toggleVideo() {
-    const t = this.localStream?.getVideoTracks()[0];
     if (!t) return false;
     t.enabled = !t.enabled;
     return t.enabled;
