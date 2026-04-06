@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
@@ -14,12 +15,14 @@ export default defineConfig({
   },
   resolve: {
     // Polyfill Node.js built-ins used by simple-peer's deps (readable-stream → events)
+    // Stub out Node-only 'websocket' package required by stompjs (browsers use native WebSocket)
     alias: {
-      events: 'events',
+      events:    'events',
+      websocket: path.resolve(__dirname, 'src/stubs/websocket-browser.js'),
     },
   },
   optimizeDeps: {
-    include: ['simple-peer', 'events'],
+    include: ['simple-peer', 'events', 'sockjs-client', 'stompjs'],
   },
   define: {
     global: 'globalThis',

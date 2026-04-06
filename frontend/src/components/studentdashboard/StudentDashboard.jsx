@@ -513,7 +513,8 @@ function StudentDashboard({ studentAccountId, onLogout }) {
             </div>
 
             {/* Avatar section */}
-            <div className="sd-settings-avatar-section">
+            <div className="sd-settings-card">
+              <h2>Фото профиля</h2>
               <div className="sd-settings-avatar-wrap">
                 {photoUrl
                   ? <img src={photoUrl.startsWith('/api/') ? `${API_BASE}${photoUrl}` : photoUrl} alt="Аватар" className="sd-settings-avatar-img" />
@@ -532,75 +533,78 @@ function StudentDashboard({ studentAccountId, onLogout }) {
             </div>
 
             {/* Name / password form */}
-            <div className="sd-settings-form sd-settings-form--page">
-              <div className="sd-settings-row">
-                <label className="sd-settings-label">Имя</label>
-                <input
-                  className="sd-settings-input"
-                  type="text"
-                  placeholder={firstName || 'Имя'}
-                  value={settingsForm.firstName}
-                  onChange={e => setSettingsForm(p => ({ ...p, firstName: e.target.value }))}
-                />
-              </div>
-              <div className="sd-settings-row">
-                <label className="sd-settings-label">Фамилия</label>
-                <input
-                  className="sd-settings-input"
-                  type="text"
-                  placeholder={lastName || 'Фамилия'}
-                  value={settingsForm.lastName}
-                  onChange={e => setSettingsForm(p => ({ ...p, lastName: e.target.value }))}
-                />
-              </div>
-              {email && (
+            <div className="sd-settings-card">
+              <h2>Личные данные</h2>
+              <div className="sd-settings-form sd-settings-form--page">
                 <div className="sd-settings-row">
-                  <label className="sd-settings-label">Email</label>
-                  <input className="sd-settings-input" type="text" value={email} readOnly style={{ opacity: 0.6 }} />
+                  <label className="sd-settings-label">Имя</label>
+                  <input
+                    className="sd-settings-input"
+                    type="text"
+                    placeholder={firstName || 'Имя'}
+                    value={settingsForm.firstName}
+                    onChange={e => setSettingsForm(p => ({ ...p, firstName: e.target.value }))}
+                  />
                 </div>
-              )}
-              <div className="sd-settings-divider">Изменить пароль</div>
-              <div className="sd-settings-row">
-                <label className="sd-settings-label">Текущий пароль</label>
-                <input
-                  className="sd-settings-input"
-                  type="password"
-                  placeholder="••••••••"
-                  value={settingsForm.currentPassword}
-                  onChange={e => setSettingsForm(p => ({ ...p, currentPassword: e.target.value }))}
-                />
+                <div className="sd-settings-row">
+                  <label className="sd-settings-label">Фамилия</label>
+                  <input
+                    className="sd-settings-input"
+                    type="text"
+                    placeholder={lastName || 'Фамилия'}
+                    value={settingsForm.lastName}
+                    onChange={e => setSettingsForm(p => ({ ...p, lastName: e.target.value }))}
+                  />
+                </div>
+                {email && (
+                  <div className="sd-settings-row">
+                    <label className="sd-settings-label">Email</label>
+                    <input className="sd-settings-input" type="text" value={email} readOnly style={{ opacity: 0.6 }} />
+                  </div>
+                )}
+                <div className="sd-settings-divider">Изменить пароль</div>
+                <div className="sd-settings-row">
+                  <label className="sd-settings-label">Текущий пароль</label>
+                  <input
+                    className="sd-settings-input"
+                    type="password"
+                    placeholder="••••••••"
+                    value={settingsForm.currentPassword}
+                    onChange={e => setSettingsForm(p => ({ ...p, currentPassword: e.target.value }))}
+                  />
+                </div>
+                <div className="sd-settings-row">
+                  <label className="sd-settings-label">Новый пароль</label>
+                  <input
+                    className="sd-settings-input"
+                    type="password"
+                    placeholder="Минимум 8 символов"
+                    value={settingsForm.newPassword}
+                    onChange={e => setSettingsForm(p => ({ ...p, newPassword: e.target.value }))}
+                  />
+                </div>
+                <div className="sd-settings-row">
+                  <label className="sd-settings-label">Повторите пароль</label>
+                  <input
+                    className="sd-settings-input"
+                    type="password"
+                    placeholder="••••••••"
+                    value={settingsForm.confirmPassword}
+                    onChange={e => setSettingsForm(p => ({ ...p, confirmPassword: e.target.value }))}
+                  />
+                </div>
+                {settingsMsg.text && (
+                  <p className={`sd-settings-msg sd-settings-msg--${settingsMsg.type}`}>{settingsMsg.text}</p>
+                )}
+                <button
+                  className="btn btn-primary sd-settings-save"
+                  onClick={handleSettingsSave}
+                  disabled={settingsLoading}
+                  type="button"
+                >
+                  {settingsLoading ? 'Сохранение...' : 'Сохранить'}
+                </button>
               </div>
-              <div className="sd-settings-row">
-                <label className="sd-settings-label">Новый пароль</label>
-                <input
-                  className="sd-settings-input"
-                  type="password"
-                  placeholder="Минимум 8 символов"
-                  value={settingsForm.newPassword}
-                  onChange={e => setSettingsForm(p => ({ ...p, newPassword: e.target.value }))}
-                />
-              </div>
-              <div className="sd-settings-row">
-                <label className="sd-settings-label">Повторите пароль</label>
-                <input
-                  className="sd-settings-input"
-                  type="password"
-                  placeholder="••••••••"
-                  value={settingsForm.confirmPassword}
-                  onChange={e => setSettingsForm(p => ({ ...p, confirmPassword: e.target.value }))}
-                />
-              </div>
-              {settingsMsg.text && (
-                <p className={`sd-settings-msg sd-settings-msg--${settingsMsg.type}`}>{settingsMsg.text}</p>
-              )}
-              <button
-                className="btn btn-primary sd-settings-save"
-                onClick={handleSettingsSave}
-                disabled={settingsLoading}
-                type="button"
-              >
-                {settingsLoading ? 'Сохранение...' : 'Сохранить'}
-              </button>
             </div>
           </div>
         ) : activeTab === 'schedule' ? (

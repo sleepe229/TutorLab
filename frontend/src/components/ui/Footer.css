@@ -1,6 +1,6 @@
 .site-footer {
   border-top: 1px solid var(--border-color, rgba(255,255,255,0.08));
-  background: var(--bg-secondary, #161b22);
+  background: var(--bg-surface);
   padding: 32px 24px;
   margin-top: auto;
 }
@@ -24,7 +24,7 @@
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  background: #5B73F5;
+  background: var(--accent-primary);
   color: #fff;
   font-size: 11px;
   font-weight: 800;

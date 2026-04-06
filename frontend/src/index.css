@@ -65,6 +65,11 @@
   /* Nav */
   --nav-bg:     #161B22;
   --nav-border: #30363D;
+
+  /* Aliases used in component CSS */
+  --bg-card:      #161B22;
+  --border-color: #30363D;
+  --bg-secondary: #161B22;
 }
 
 /* ── Light theme ───────────────────────────────────────────────────────── */
@@ -114,6 +119,11 @@
 
   --nav-bg:     #FFFFFF;
   --nav-border: #E2E8F0;
+
+  /* Aliases used in component CSS */
+  --bg-card:      #FFFFFF;
+  --border-color: #E2E8F0;
+  --bg-secondary: #FFFFFF;
 }
 
 /* ── Base ──────────────────────────────────────────────────────────────── */

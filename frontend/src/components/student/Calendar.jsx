@@ -37,14 +37,9 @@ function Calendar({ lessons = [], onDateClick }) {
     return date.toISOString().split('T')[0];
   };
   
-  const hasLesson = (day) => {
+  const getLessons = (day) => {
     const dateStr = formatDateKey(new Date(year, month, day));
-    return lessons.some(lesson => lesson.date === dateStr);
-  };
-  
-  const getLesson = (day) => {
-    const dateStr = formatDateKey(new Date(year, month, day));
-    return lessons.find(lesson => lesson.date === dateStr);
+    return lessons.filter(lesson => lesson.date === dateStr);
   };
   
   const isToday = (day) => {
@@ -66,7 +61,7 @@ function Calendar({ lessons = [], onDateClick }) {
   const handleDateClick = (day) => {
     if (isPast(day)) return;
     const dateStr = formatDateKey(new Date(year, month, day));
-    onDateClick(dateStr, getLesson(day));
+    onDateClick(dateStr, null);
   };
   
   const renderCalendarDays = () => {
@@ -81,11 +76,12 @@ function Calendar({ lessons = [], onDateClick }) {
     
     // Дни месяца
     for (let day = 1; day <= daysInMonth; day++) {
-      const lesson = getLesson(day);
-      const hasLessonOnDay = hasLesson(day);
+      const dayLessons = getLessons(day);
+      const hasLessonOnDay = dayLessons.length > 0;
       const dayIsToday = isToday(day);
       const dayIsPast = isPast(day);
-      
+      const dateStr = formatDateKey(new Date(year, month, day));
+
       days.push(
         <div
           key={day}
@@ -93,11 +89,15 @@ function Calendar({ lessons = [], onDateClick }) {
           onClick={() => handleDateClick(day)}
         >
           <span className="day-number">{day}</span>
-          {hasLessonOnDay && (
-            <div className="lesson-indicator">
+          {dayLessons.map((lesson, i) => (
+            <div
+              key={i}
+              className="lesson-indicator"
+              onClick={(e) => { e.stopPropagation(); if (!dayIsPast) onDateClick(dateStr, lesson); }}
+            >
               <span className="lesson-time">{lesson.time}</span>
             </div>
-          )}
+          ))}
         </div>
       );
     }
