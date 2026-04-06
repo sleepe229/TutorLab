@@ -293,7 +293,7 @@
   flex-shrink: 0;
 }
 
-.sc-day__initials {
+.sc-day__name {
   font-size: 9px;
   font-weight: 700;
   color: #fff;
@@ -431,6 +431,6 @@
   .sc-day { min-height: 52px; padding: 4px; }
   .sc-day__num { font-size: 11px; }
   .sc-day__chip { padding: 1px 3px; }
-  .sc-day__time, .sc-day__initials { font-size: 8px; }
+  .sc-day__time, .sc-day__name { font-size: 8px; }
   .sc-stat__num { font-size: 22px; }
 }

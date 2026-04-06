@@ -112,7 +112,7 @@ function Schedule({ tutorId, onLogout }) {
               {lessons.slice(0, 3).map((l, i) => (
                 <div key={i} className="sc-day__chip">
                   {l.time && <span className="sc-day__time">{l.time}</span>}
-                  <span className="sc-day__initials">{getInitials(l.studentName)}</span>
+                  <span className="sc-day__name">{l.studentName.split(' ')[0]}</span>
                 </div>
               ))}
               {lessons.length > 3 && <div className="sc-day__more">+{lessons.length - 3}</div>}

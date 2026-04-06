@@ -15,8 +15,6 @@ function StudentCard({ student, onClick, onDelete, onToggleFavorite, tutorId, on
 
   const photoUrl = getPhotoUrl();
 
-  // Lesson stats
-  const lessonCount = student.lessonDates?.length || 0;
   const materialCount = student.materialUrls?.length || 0;
 
   // Parse date from "YYYY-MM-DD|HH:MM|note" strings using local timezone
@@ -25,6 +23,12 @@ function StudentCard({ student, onClick, onDelete, onToggleFavorite, tutorId, on
   // Upcoming lesson (compare at day boundary, not millisecond)
   const now = new Date();
   const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+
+  // Only count past lessons
+  const lessonCount = student.lessonDates?.filter(d => {
+    const dateStr = d.includes('|') ? d.split('|')[0] : d;
+    return parseLocalDate(dateStr) < todayStart;
+  }).length || 0;
   const upcomingLesson = student.lessonDates
     ?.map(parseLessonDate)
     .filter(d => !isNaN(d) && d >= todayStart)
