@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { tutorApi, joinApi } from '../../services/api';
+import { tutorApi, joinApi, chatApi } from '../../services/api';
 import { API_BASE } from '../../config.js';
 import RegistrationChat from '../registration/RegistrationChat';
 import './JoinTutor.css';
@@ -31,6 +31,14 @@ function JoinTutor({ studentAccountId, onStudentAuth }) {
     setJoining(true);
     try {
       await joinApi.joinTutor(tutorId, token);
+      // Auto-create chat so it appears immediately in Сообщения
+      try {
+        const accountId = localStorage.getItem('studentAccountId');
+        const firstName = localStorage.getItem('studentFirstName') || '';
+        const lastName = localStorage.getItem('studentLastName') || '';
+        const name = `${firstName} ${lastName}`.trim() || 'Ученик';
+        if (accountId) await chatApi.getOrCreateAsStudent(tutorId, accountId, name, token);
+      } catch { /* non-critical */ }
       setJoined(true);
       toast.success('Вы добавлены к репетитору!');
       setTimeout(() => navigate('/me'), 1500);

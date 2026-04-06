@@ -28,7 +28,7 @@ function ChatPage({ role, senderId, senderName, token, onLogout, backPath = '/ho
   }, [senderId, navigate]);
 
   return (
-    <div className="chat-page">
+    <div className={`chat-page${role === 'TUTOR' ? ' chat-page--tutor' : ''}`}>
       {role === 'TUTOR'
         ? <TutorNav tutorId={senderId} activePage="chat" onLogout={onLogout} />
         : (

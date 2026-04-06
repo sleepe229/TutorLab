@@ -284,7 +284,7 @@ function LiveLessonStudent() {
     clientRef.current?.disconnect();
     teacherRtcRef.current?.stopStream();
     studentRtcRef.current?.stopStream();
-    navigate('/tutors');
+    navigate('/me');
   };
 
   // ── Draw (incoming from teacher) ──────────────────────────────────────

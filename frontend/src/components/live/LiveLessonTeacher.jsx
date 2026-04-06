@@ -23,6 +23,7 @@ function LiveLessonTeacher({ tutorId }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const studentName = searchParams.get('studentName');
+  const preselectedStudentId = searchParams.get('studentId') || '';
 
   const [session, setSession] = useState(null);
   const [presentation, setPresentation] = useState(null);
@@ -44,7 +45,7 @@ function LiveLessonTeacher({ tutorId }) {
   // End-lesson modal state
   const [showEndModal, setShowEndModal] = useState(false);
   const [endingLesson, setEndingLesson] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [selectedStudentId, setSelectedStudentId] = useState(preselectedStudentId);
   const [tutorStudents, setTutorStudents] = useState([]);
   const [snapshotId, setSnapshotId] = useState(null);
   const [recap, setRecap] = useState(null);
@@ -605,12 +606,14 @@ function LiveLessonTeacher({ tutorId }) {
 
   // ── End lesson modal ──────────────────────────────────────────────────
   const handleEndLesson = async () => {
-    // Load student list for the dropdown
-    try {
-      const res = await studentApi.getStudentsByTutor(tutorId);
-      setTutorStudents(res.data || []);
-    } catch {
-      setTutorStudents([]);
+    // Only load students if no specific student was pre-selected from URL params
+    if (!preselectedStudentId) {
+      try {
+        const res = await studentApi.getStudentsByTutor(tutorId);
+        setTutorStudents(res.data || []);
+      } catch {
+        setTutorStudents([]);
+      }
     }
     setShowEndModal(true);
   };
@@ -714,19 +717,27 @@ function LiveLessonTeacher({ tutorId }) {
             {!snapshotId ? (
               <>
                 <h2 className="end-modal-title">Завершить урок?</h2>
-                <p className="end-modal-hint">Выберите ученика, чтобы урок сохранился в его истории.</p>
-                <select
-                  className="end-modal-select"
-                  value={selectedStudentId}
-                  onChange={e => setSelectedStudentId(e.target.value)}
-                >
-                  <option value="">— Без привязки к ученику —</option>
-                  {tutorStudents.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.firstName} {s.lastName}
-                    </option>
-                  ))}
-                </select>
+                {preselectedStudentId ? (
+                  <p className="end-modal-hint">
+                    Урок будет сохранён в истории ученика <strong>{studentName || 'ученика'}</strong>.
+                  </p>
+                ) : (
+                  <>
+                    <p className="end-modal-hint">Выберите ученика, чтобы урок сохранился в его истории.</p>
+                    <select
+                      className="end-modal-select"
+                      value={selectedStudentId}
+                      onChange={e => setSelectedStudentId(e.target.value)}
+                    >
+                      <option value="">— Без привязки к ученику —</option>
+                      {tutorStudents.map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.firstName} {s.lastName}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                )}
                 <div className="end-modal-actions">
                   <button
                     className="btn btn-secondary"
