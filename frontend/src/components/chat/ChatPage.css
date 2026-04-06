@@ -5,6 +5,18 @@
   background: var(--bg-page);
 }
 
+/* Tutor chat: offset for sidebar. Student chat has no sidebar so no offset needed. */
+.chat-page--tutor {
+  padding-left: var(--sidebar-width, 220px);
+}
+
+@media (max-width: 768px) {
+  .chat-page--tutor {
+    padding-left: 0;
+    padding-top: 52px;
+  }
+}
+
 .chat-page__body {
   flex: 1;
   overflow: hidden;

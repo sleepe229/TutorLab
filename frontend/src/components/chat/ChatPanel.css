@@ -391,6 +391,43 @@
   height: 100%;
 }
 
+/* Back button (mobile only) */
+.chat-back-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  margin-right: 4px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Inline chat mobile: one panel at a time ────────────────────────── */
+@media (max-width: 680px) {
+  .chat-back-btn { display: flex; }
+
+  /* When no chat selected: show list, hide messages */
+  .chat-panel--inline .chat-panel__body[data-has-active='false'] .chat-list {
+    width: 100%;
+    border-right: none;
+  }
+  .chat-panel--inline .chat-panel__body[data-has-active='false'] .chat-messages {
+    display: none;
+  }
+
+  /* When chat selected: hide list, show messages full width */
+  .chat-panel--inline .chat-panel__body[data-has-active='true'] .chat-list {
+    display: none;
+  }
+  .chat-panel--inline .chat-panel__body[data-has-active='true'] .chat-messages {
+    flex: 1;
+  }
+}
+
 
 /* File attach button */
 .chat-attach-btn { width: 36px; height: 36px; border-radius: 50%; background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; transition: color 0.15s, border-color 0.15s; }

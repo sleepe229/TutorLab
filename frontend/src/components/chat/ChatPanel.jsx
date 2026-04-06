@@ -161,6 +161,16 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
     return () => document.removeEventListener('click', handler);
   }, [groupPickerOpen]);
 
+  // Close ⋮ chat menu on outside click
+  useEffect(() => {
+    if (!showChatMenu) return;
+    const handler = (e) => {
+      if (!e.target.closest('.chat-header-menu-wrap')) setShowChatMenu(false);
+    };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [showChatMenu]);
+
   // ── Send / Edit ─────────────────────────────────────────────────────────────
 
   const handleSend = async (e) => {
@@ -527,7 +537,7 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
         </div>
       )}
 
-      <div className="chat-panel__body">
+      <div className="chat-panel__body" data-has-active={activeChat ? 'true' : 'false'}>
         {/* Sidebar */}
         <div className="chat-list">
           <div className="chat-list__top">
@@ -576,6 +586,16 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
               {/* Chat header */}
               <div className="chat-messages__header">
                 <div className="chat-messages__header-left">
+                  {/* Mobile: back to chat list */}
+                  <button
+                    className="chat-back-btn"
+                    onClick={() => setActiveChat(null)}
+                    aria-label="Назад к диалогам"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="15 18 9 12 15 6"/>
+                    </svg>
+                  </button>
                   <span className="chat-messages__name">{getChatDisplayName(activeChat)}</span>
                   {isGroupChat(activeChat) && (
                     <span className="chat-messages__member-count">

@@ -25,6 +25,9 @@ const [search, setSearch] = useState('');
     if (isAuthenticated) {
       tutorApi.getTutor(tutorId).then(r => setTutorName(r.data.fullName || '')).catch(() => {});
     }
+    // Poll for new students every 10 s so the list updates when a student joins via invite link
+    const interval = setInterval(loadStudents, 10_000);
+    return () => clearInterval(interval);
   }, [tutorId]);
 
   const loadStudents = async () => {

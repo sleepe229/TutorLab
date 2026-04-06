@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import toast from 'react-hot-toast';
-import { tutorApi, chatApi } from '../../services/api';
+import { tutorApi, chatApi, studentAccountApi, studentApi } from '../../services/api';
 import { API_BASE } from '../../config.js';
 import ThemeToggle from '../ui/ThemeToggle';
 import './TutorProfilePage.css';
@@ -20,6 +20,7 @@ function TutorProfilePage({ studentAccountId }) {
   const [loading, setLoading] = useState(true);
   const [aboutExpanded, setAboutExpanded] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
+  const [alreadyLinked, setAlreadyLinked] = useState(false);
 
   useEffect(() => {
     tutorApi.getTutorProfile(id)
@@ -27,6 +28,24 @@ function TutorProfilePage({ studentAccountId }) {
       .catch(() => setTutor(null))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Check if the logged-in student already has a profile with this tutor
+  useEffect(() => {
+    if (!studentAccountId) return;
+    const token = localStorage.getItem('studentToken');
+    if (!token) return;
+    studentAccountApi.getMe(token)
+      .then(async r => {
+        const linkedIds = r.data?.linkedStudentIds || [];
+        if (!linkedIds.length) return;
+        const profiles = await Promise.all(
+          linkedIds.map(sid => studentApi.getStudentPublic(sid).catch(() => null))
+        );
+        const linked = profiles.some(p => p?.data?.tutorId === id);
+        setAlreadyLinked(linked);
+      })
+      .catch(() => {});
+  }, [studentAccountId, id]);
 
   const handleContact = async () => {
     if (!studentAccountId) {
@@ -166,19 +185,35 @@ function TutorProfilePage({ studentAccountId }) {
               )}
 
               {/* CTA strip */}
-              <div className="tpp-cta-strip">
-                <div className="tpp-cta-text">
-                  <strong>Хотите заниматься с {tutor.fullName?.split(' ')[0]}?</strong>
-                  <span>Напишите репетитору — первый урок бесплатно</span>
+              {alreadyLinked ? (
+                <div className="tpp-cta-strip">
+                  <div className="tpp-cta-text">
+                    <strong>Вы уже занимаетесь с {tutor.fullName?.split(' ')[0]}</strong>
+                    <span>Напишите репетитору или перейдите в кабинет</span>
+                  </div>
+                  <button
+                    className="btn btn-primary tpp-cta-btn"
+                    onClick={handleContact}
+                    disabled={chatLoading}
+                  >
+                    {chatLoading ? 'Открытие...' : 'Написать'}
+                  </button>
                 </div>
-                <button
-                  className="btn btn-primary tpp-cta-btn"
-                  onClick={handleContact}
-                  disabled={chatLoading}
-                >
-                  {chatLoading ? 'Открытие...' : 'Написать'}
-                </button>
-              </div>
+              ) : (
+                <div className="tpp-cta-strip">
+                  <div className="tpp-cta-text">
+                    <strong>Хотите заниматься с {tutor.fullName?.split(' ')[0]}?</strong>
+                    <span>Напишите репетитору — первый урок бесплатно</span>
+                  </div>
+                  <button
+                    className="btn btn-primary tpp-cta-btn"
+                    onClick={handleContact}
+                    disabled={chatLoading}
+                  >
+                    {chatLoading ? 'Открытие...' : 'Написать'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
