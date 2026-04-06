@@ -21,7 +21,7 @@ function JoinTutor({ studentAccountId, onStudentAuth }) {
   const [joined, setJoined] = useState(false);
 
   useEffect(() => {
-    tutorApi.getTutor(tutorId)
+    tutorApi.getTutorProfile(tutorId)
       .then(r => setTutor(r.data))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -69,6 +69,18 @@ function JoinTutor({ studentAccountId, onStudentAuth }) {
     );
   }
 
+  // Show joining / joined state (check before !tutor so auto-join doesn't flash error screen)
+  if (joining || joined) {
+    return (
+      <div className="join-container">
+        <div className="join-card">
+          <div className="join-spinner" />
+          <p>{joined ? 'Готово! Переходим в ваш кабинет...' : 'Добавляем вас к репетитору...'}</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!tutor) {
     return (
       <div className="join-container">
@@ -76,18 +88,6 @@ function JoinTutor({ studentAccountId, onStudentAuth }) {
           <h2>Ссылка недействительна</h2>
           <p>Репетитор не найден.</p>
           <button className="btn btn-primary" onClick={() => navigate('/home')}>На главную</button>
-        </div>
-      </div>
-    );
-  }
-
-  // Show joining / joined state
-  if (joining || joined) {
-    return (
-      <div className="join-container">
-        <div className="join-card">
-          <div className="join-spinner" />
-          <p>{joined ? 'Готово! Переходим в ваш кабинет...' : 'Добавляем вас к репетитору...'}</p>
         </div>
       </div>
     );
