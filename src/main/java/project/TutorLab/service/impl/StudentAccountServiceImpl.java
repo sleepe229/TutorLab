@@ -139,6 +139,12 @@ public class StudentAccountServiceImpl implements StudentAccountService {
             account.setLinkedStudentIds(ids);
             accountRepository.save(account);
         }
+        // Also update the reverse link on the Student record
+        Student student = studentRepository.findById(studentId);
+        if (student != null && (student.getStudentAccountId() == null || student.getStudentAccountId().isBlank())) {
+            student.setStudentAccountId(accountId);
+            studentRepository.save(student);
+        }
     }
 
     @Override

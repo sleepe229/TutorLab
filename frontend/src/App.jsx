@@ -39,7 +39,7 @@ function RoleChoice({ onSelect }) {
       </Helmet>
       <div className="role-choice-card">
         <div className="role-choice-logo">
-          <div className="brand-logo-mark" style={{ width: 48, height: 48, fontSize: 18, borderRadius: 12, background: '#5B73F5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800 }}>TL</div>
+          <div className="brand-logo-mark" style={{ width: 48, height: 48, fontSize: 18, borderRadius: 12, background: 'var(--accent-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800 }}>TL</div>
           <h1 className="role-choice-title">TutorLab</h1>
         </div>
         <p className="role-choice-sub">Управляйте учениками, проводите онлайн-уроки с интерактивной доской и находите студентов через маркетплейс репетиторов.</p>

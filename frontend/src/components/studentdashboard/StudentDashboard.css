@@ -217,7 +217,32 @@
 .sd-settings-save { margin-top: 4px; align-self: flex-start; }
 
 /* Settings tab (full page layout) */
-.sd-settings-page { max-width: 520px; margin: 0 auto; }
+.sd-settings-page { max-width: 640px; margin: 0 auto; }
+.sd-settings-page h1 {
+  background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.sd-settings-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 28px 30px;
+  box-shadow: 0 8px 32px var(--glass-shadow);
+  margin-bottom: 20px;
+}
+.sd-settings-card h2 {
+  margin: 0 0 20px 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
 .sd-settings-form--page { max-width: 100%; }
 .sd-settings-avatar-section { margin-bottom: 24px; }
 .sd-settings-avatar-wrap { display: flex; align-items: center; gap: 20px; }
