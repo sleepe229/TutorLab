@@ -28,12 +28,28 @@ public class PdfServiceImpl implements PdfService {
     @Value("${app.upload.dir:users-photos}")
     private String uploadDir;
 
+    /**
+     * Builds a safe directory path for storing slides for a given session.
+     * Ensures that the resulting path stays within the configured uploadDir/slides base.
+     */
+    private Path getSafeSessionPath(String sessionId) throws IOException {
+        Path basePath = Paths.get(uploadDir, "slides").toAbsolutePath().normalize();
+        Path sessionPath = basePath.resolve(sessionId).toAbsolutePath().normalize();
+
+        if (!sessionPath.startsWith(basePath)) {
+            log.warn("Rejected unsafe session path for sessionId={}: {}", sessionId, sessionPath);
+            throw new IOException("Invalid session path");
+        }
+
+        return sessionPath;
+    }
+
     @Override
     public List<String> convertPdfToImages(MultipartFile pdfFile, String sessionId) throws IOException {
         List<String> imageUrls = new ArrayList<>();
 
         // Создаём папку для слайдов сессии
-        Path sessionPath = Paths.get(uploadDir, "slides", sessionId);
+        Path sessionPath = getSafeSessionPath(sessionId);
         if (!Files.exists(sessionPath)) {
             Files.createDirectories(sessionPath);
         }
@@ -63,7 +79,7 @@ public class PdfServiceImpl implements PdfService {
         log.info("Starting async PDF conversion for session={}, bytes={}", sessionId, pdfBytes.length);
         try {
             List<String> imageUrls = new ArrayList<>();
-            Path sessionPath = Paths.get(uploadDir, "slides", sessionId);
+            Path sessionPath = getSafeSessionPath(sessionId);
             if (!Files.exists(sessionPath)) {
                 Files.createDirectories(sessionPath);
             }
