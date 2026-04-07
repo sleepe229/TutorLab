@@ -135,8 +135,9 @@ public class FileUploadController {
             return ResponseEntity.badRequest().body(response);
         }
 
-        if (tutorId == null || tutorId.isEmpty() || studentId == null || studentId.isEmpty()) {
-            response.put("error", "Не указаны ID репетитора или студента");
+        // Проверяем, что ID не пустые и имеют безопасный формат (только буквы, цифры, _, -)
+        if (!isSafeId(tutorId) || !isSafeId(studentId)) {
+            response.put("error", "Не указаны или некорректные ID репетитора или студента");
             return ResponseEntity.badRequest().body(response);
         }
 
@@ -193,6 +194,22 @@ public class FileUploadController {
             response.put("error", "Ошибка при сохранении файла: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
+    }
+
+    // Разрешаем только безопасные ID без разделителей пути и последовательностей ".."
+    private boolean isSafeId(String id) {
+        if (id == null || id.isEmpty()) {
+            return false;
+        }
+        // Только латинские буквы, цифры, подчеркивания и дефисы
+        if (!id.matches("^[A-Za-z0-9_-]+$")) {
+            return false;
+        }
+        // Дополнительная защита от последовательностей родительских директорий
+        if (id.contains("..") || id.contains("/") || id.contains("\\")) {
+            return false;
+        }
+        return true;
     }
 
     @GetMapping("/materials/{tutorId}/{studentId}/{filename:.+}")
