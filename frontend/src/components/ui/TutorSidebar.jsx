@@ -98,10 +98,10 @@ function TutorSidebar({ tutorId, activePage, onLogout, breadcrumb, extraActions 
       {/* Sidebar */}
       <aside className={`tutor-sidebar${mobileOpen ? ' tutor-sidebar--open' : ''}`}>
         {/* Logo */}
-        <div className="sidebar-logo-wrap" onClick={() => handleNav('/home')}>
+        <button className="sidebar-logo-wrap" onClick={() => handleNav('/home')}>
           <div className="sidebar-logo-mark">TL</div>
           <span className="sidebar-brand-name">TutorLab</span>
-        </div>
+        </button>
 
         {/* Breadcrumb if given */}
         {breadcrumb && (

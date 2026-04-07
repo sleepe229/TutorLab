@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import project.TutorLab.config.JwtService;
 import project.TutorLab.dto.SnapshotSummaryDto;
 import project.TutorLab.dto.StudentSessionHistoryDto;
@@ -130,6 +131,7 @@ public class StudentAccountServiceImpl implements StudentAccountService {
     }
 
     @Override
+    @Transactional
     public void linkToStudent(String accountId, String studentId) {
         StudentAccount account = accountRepository.findById(accountId);
         if (account == null) throw new IllegalArgumentException("Account not found");
