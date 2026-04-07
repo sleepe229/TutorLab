@@ -42,7 +42,7 @@ public class TutorUploadController {
         }
 
         try {
-            Path uploadPath = Paths.get(uploadDir);
+            Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
@@ -54,7 +54,12 @@ public class TutorUploadController {
             }
             String filename = UUID.randomUUID().toString() + extension;
 
-            Path filePath = uploadPath.resolve(filename);
+            Path filePath = uploadPath.resolve(filename).normalize();
+            if (!filePath.startsWith(uploadPath)) {
+                response.put("error", "Недопустимое имя файла");
+                return ResponseEntity.badRequest().body(response);
+            }
+
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
             String photoUrl = "/api/students/photos/" + filename;
