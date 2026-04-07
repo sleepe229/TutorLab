@@ -338,3 +338,42 @@
   font-size: 14px;
 }
 
+@media (max-width: 768px) {
+  .role-choice-overlay {
+    justify-content: flex-start;
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .role-choice-card {
+    margin-top: 16px;
+    padding: 28px 20px;
+    border-radius: 18px;
+  }
+
+  .role-choice-title {
+    font-size: 22px;
+  }
+
+  .role-choice-sub {
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+
+  .role-btn {
+    padding: 14px 16px;
+    font-size: 15px;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 420px) {
+  .role-choice-logo {
+    gap: 8px;
+  }
+
+  .role-choice-title {
+    font-size: 20px;
+  }
+}
+

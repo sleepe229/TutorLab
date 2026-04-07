@@ -62,21 +62,41 @@ public class FileUploadController {
 
         try {
             // Создаем директорию, если её нет
-            Path uploadPath = Paths.get(uploadDir);
+            Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
 
-            // Генерируем уникальное имя файла
-            String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            // Определяем расширение по content-type (белый список, защита от path traversal через имя файла)
+            String normalizedContentType = contentType.split(";")[0].trim();
+            String extension;
+            switch (normalizedContentType) {
+                case "image/jpeg":
+                case "image/jpg":
+                    extension = ".jpg";
+                    break;
+                case "image/png":
+                    extension = ".png";
+                    break;
+                case "image/gif":
+                    extension = ".gif";
+                    break;
+                case "image/webp":
+                    extension = ".webp";
+                    break;
+                default:
+                    response.put("error", "Неподдерживаемый формат изображения");
+                    return ResponseEntity.badRequest().body(response);
             }
             String filename = UUID.randomUUID().toString() + extension;
 
             // Сохраняем файл
-            Path filePath = uploadPath.resolve(filename);
+            Path filePath = uploadPath.resolve(filename).normalize();
+            if (!filePath.startsWith(uploadPath)) {
+                log.warn("Path traversal attempt in uploadPhoto: filename={}", filename);
+                response.put("error", "Недопустимое имя файла");
+                return ResponseEntity.badRequest().body(response);
+            }
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
             // Возвращаем относительный путь для использования в приложении
@@ -140,6 +160,12 @@ public class FileUploadController {
             return ResponseEntity.badRequest().body(response);
         }
 
+        // Валидация ID: только буквы, цифры, дефис и подчеркивание
+        if (!tutorId.matches("^[A-Za-z0-9_-]+$") || !studentId.matches("^[A-Za-z0-9_-]+$")) {
+            response.put("error", "Неверный формат ID репетитора или студента");
+            return ResponseEntity.badRequest().body(response);
+        }
+
         // Проверка размера файла (макс 10MB)
         if (file.getSize() > 10 * 1024 * 1024) {
             response.put("error", "Размер файла не должен превышать 10MB");
@@ -148,9 +174,16 @@ public class FileUploadController {
 
         try {
             // Создаем структуру папок: materials/{tutorId}/{studentId}/
-            Path tutorPath = Paths.get(materialsDir, tutorId);
-            Path studentPath = tutorPath.resolve(studentId);
-            
+            Path baseMaterialsPath = Paths.get(materialsDir).toAbsolutePath().normalize();
+            Path tutorPath = baseMaterialsPath.resolve(tutorId).normalize();
+            Path studentPath = tutorPath.resolve(studentId).normalize();
+
+            if (!studentPath.startsWith(baseMaterialsPath)) {
+                log.warn("Path traversal attempt in uploadMaterial: tutorId={}, studentId={}", tutorId, studentId);
+                response.put("error", "Недопустимый путь для сохранения файла");
+                return ResponseEntity.badRequest().body(response);
+            }
+
             if (!Files.exists(studentPath)) {
                 Files.createDirectories(studentPath);
             }
@@ -164,9 +197,20 @@ public class FileUploadController {
             // Очищаем имя файла от недопустимых символов, но сохраняем русские буквы
             // Разрешаем: буквы (латиница и кириллица), цифры, точки, дефисы, подчеркивания
             String safeFilename = originalFilename.replaceAll("[^\\p{L}\\p{N}.\\-_]", "_");
-            
+
+            // Защита от path traversal через имя файла
+            if (safeFilename.contains("..") || safeFilename.contains("/") || safeFilename.contains("\\")) {
+                response.put("error", "Недопустимое имя файла");
+                return ResponseEntity.badRequest().body(response);
+            }
+
             // Проверяем, существует ли файл с таким именем
-            Path filePath = studentPath.resolve(safeFilename);
+            Path filePath = studentPath.resolve(safeFilename).normalize();
+            if (!filePath.startsWith(studentPath)) {
+                log.warn("Path traversal attempt in uploadMaterial filename: {}", safeFilename);
+                response.put("error", "Недопустимое имя файла");
+                return ResponseEntity.badRequest().body(response);
+            }
             if (Files.exists(filePath)) {
                 // Если файл существует, добавляем timestamp перед расширением
                 int lastDotIndex = safeFilename.lastIndexOf('.');
@@ -200,14 +244,20 @@ public class FileUploadController {
             @PathVariable String tutorId,
             @PathVariable String studentId,
             @PathVariable String filename) {
+        // Валидация ID: только буквы, цифры, дефис и подчеркивание
+        if (!tutorId.matches("^[A-Za-z0-9_-]+$") || !studentId.matches("^[A-Za-z0-9_-]+$")) {
+            return ResponseEntity.badRequest().build();
+        }
+
         try {
             // Безопасный путь: materials/{tutorId}/{studentId}/{filename}
-            Path filePath = Paths.get(materialsDir, tutorId, studentId, filename).normalize();
-            
+            Path basePath = Paths.get(materialsDir).toAbsolutePath().normalize();
+            Path filePath = basePath.resolve(tutorId).resolve(studentId).resolve(filename).normalize();
+
             // Проверяем, что путь находится в правильной директории (защита от path traversal)
-            Path basePath = Paths.get(materialsDir, tutorId, studentId).normalize();
             if (!filePath.startsWith(basePath)) {
-                return ResponseEntity.badRequest().build();
+                log.warn("Path traversal attempt in getMaterial: tutorId={}, studentId={}, filename={}", tutorId, studentId, filename);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
             
             File file = filePath.toFile();
