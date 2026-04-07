@@ -666,7 +666,7 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
                   <div className="chat-members-panel__title">Участники</div>
                   {(activeChat.participantIds || []).map(pid => (
                     <div key={pid} className="chat-members-panel__item">
-                      <span className="chat-members-panel__name">{nameMap[pid] || 'Участник'}</span>
+                      <span className="chat-members-panel__name">{activeChat.participantNames?.[pid] || nameMap[pid] || pid}</span>
                       {activeChat.adminIds?.includes(pid) && (
                         <span className="chat-members-panel__admin">admin</span>
                       )}

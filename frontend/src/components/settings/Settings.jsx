@@ -217,7 +217,7 @@ function Settings({ tutorId, onBack, onLogout }) {
                   value={subjectInput}
                   onChange={e => setSubjectInput(e.target.value)}
                   onKeyDown={handleSubjectKeyDown}
-                  onBlur={() => { if (subjectInput.trim()) { addSubject(subjectInput); setSubjectInput(''); } }}
+                  onBlur={() => {}}
                   placeholder={formData.subjects.length === 0 ? 'Введите предмет, Enter или запятая' : ''}
                 />
               </div>
@@ -227,7 +227,8 @@ function Settings({ tutorId, onBack, onLogout }) {
                     key={s}
                     type="button"
                     className="subject-suggestion"
-                    onClick={() => addSubject(s)}
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => { addSubject(s); subjectInputRef.current?.focus(); }}
                   >{s}</button>
                 ))}
               </div>

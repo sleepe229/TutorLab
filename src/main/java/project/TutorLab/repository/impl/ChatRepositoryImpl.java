@@ -10,9 +10,13 @@ import project.TutorLab.repository.ChatRepository;
 import project.TutorLab.repository.jpa.ChatJpaRepository;
 import project.TutorLab.repository.jpa.ChatMessageJpaRepository;
 import project.TutorLab.repository.jpa.ChatParticipantJpaRepository;
+import project.TutorLab.repository.jpa.StudentAccountJpaRepository;
+import project.TutorLab.repository.jpa.TutorJpaRepository;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Repository
@@ -26,6 +30,12 @@ public class ChatRepositoryImpl implements ChatRepository {
 
     @Autowired
     private ChatParticipantJpaRepository chatParticipantJpaRepository;
+
+    @Autowired
+    private StudentAccountJpaRepository studentAccountJpaRepository;
+
+    @Autowired
+    private TutorJpaRepository tutorJpaRepository;
 
     @Override
     @Transactional
@@ -140,5 +150,16 @@ public class ChatRepositoryImpl implements ChatRepository {
         chat.setParticipantIds(participantIds);
         chat.setAdminIds(adminIds);
         chat.setHiddenForMembers(hiddenForMembers);
+
+        Map<String, String> names = new HashMap<>();
+        for (String pid : participantIds) {
+            tutorJpaRepository.findById(pid).ifPresentOrElse(
+                t -> names.put(pid, t.getFullName()),
+                () -> studentAccountJpaRepository.findById(pid).ifPresent(
+                    s -> names.put(pid, (s.getFirstName() + " " + s.getLastName()).trim())
+                )
+            );
+        }
+        chat.setParticipantNames(names);
     }
 }
