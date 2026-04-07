@@ -28,15 +28,40 @@ public class PdfServiceImpl implements PdfService {
     @Value("${app.upload.dir:users-photos}")
     private String uploadDir;
 
+    /**
+     * Builds a safe, normalized path for storing slides for the given session.
+     * Ensures the resulting directory stays within the configured uploadDir/slides.
+     */
+    private Path getSafeSessionPath(String sessionId) throws IOException {
+        // Base directory for all slides
+        Path basePath = Paths.get(uploadDir, "slides").toAbsolutePath().normalize();
+
+        // Basic validation: allow only simple identifier characters for sessionId
+        if (sessionId == null || !sessionId.matches("[A-Za-z0-9_-]+")) {
+            throw new IllegalArgumentException("Invalid sessionId");
+        }
+
+        // Resolve and normalize the session-specific path
+        Path sessionPath = basePath.resolve(sessionId).toAbsolutePath().normalize();
+
+        // Ensure the session path is still within the base slides directory
+        if (!sessionPath.startsWith(basePath)) {
+            throw new IllegalArgumentException("Invalid sessionId path");
+        }
+
+        if (!Files.exists(sessionPath)) {
+            Files.createDirectories(sessionPath);
+        }
+
+        return sessionPath;
+    }
+
     @Override
     public List<String> convertPdfToImages(MultipartFile pdfFile, String sessionId) throws IOException {
         List<String> imageUrls = new ArrayList<>();
 
-        // Создаём папку для слайдов сессии
-        Path sessionPath = Paths.get(uploadDir, "slides", sessionId);
-        if (!Files.exists(sessionPath)) {
-            Files.createDirectories(sessionPath);
-        }
+        // Создаём папку для слайдов сессии в безопасной директории
+        Path sessionPath = getSafeSessionPath(sessionId);
 
         try (PDDocument document = PDDocument.load(pdfFile.getInputStream())) {
             PDFRenderer renderer = new PDFRenderer(document);
@@ -63,10 +88,7 @@ public class PdfServiceImpl implements PdfService {
         log.info("Starting async PDF conversion for session={}, bytes={}", sessionId, pdfBytes.length);
         try {
             List<String> imageUrls = new ArrayList<>();
-            Path sessionPath = Paths.get(uploadDir, "slides", sessionId);
-            if (!Files.exists(sessionPath)) {
-                Files.createDirectories(sessionPath);
-            }
+            Path sessionPath = getSafeSessionPath(sessionId);
             try (PDDocument document = PDDocument.load(pdfBytes)) {
                 PDFRenderer renderer = new PDFRenderer(document);
                 for (int page = 0; page < document.getNumberOfPages(); page++) {
