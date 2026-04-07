@@ -75,6 +75,7 @@ function buildMarketplaceSchema(tutors) {
 function TutorMarketplace({ studentAccountId }) {
   const navigate = useNavigate();
   const isTutorLoggedIn = !!localStorage.getItem('sessionToken');
+  const currentTutorId = localStorage.getItem('tutorId');
   const [tutors, setTutors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -97,6 +98,7 @@ function TutorMarketplace({ studentAccountId }) {
 
   const filtered = useMemo(() => {
     return tutors.filter(t => {
+      if (currentTutorId && t.id === currentTutorId) return false;
       if (search) {
         const q = search.toLowerCase();
         if (!(t.fullName || '').toLowerCase().includes(q) &&

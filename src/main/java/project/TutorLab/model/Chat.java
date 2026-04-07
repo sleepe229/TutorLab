@@ -4,7 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Entity
 @Table(name = "chats")
@@ -71,6 +73,8 @@ public class Chat {
     private List<String> adminIds;
     @Transient
     private List<String> hiddenForMembers;
+    @Transient
+    private Map<String, String> participantNames;
 
     public Chat() {}
 
@@ -143,6 +147,12 @@ public class Chat {
         return hiddenForMembers;
     }
     public void setHiddenForMembers(List<String> hiddenForMembers) { this.hiddenForMembers = hiddenForMembers; }
+
+    public Map<String, String> getParticipantNames() {
+        if (participantNames == null) participantNames = new HashMap<>();
+        return participantNames;
+    }
+    public void setParticipantNames(Map<String, String> participantNames) { this.participantNames = participantNames; }
 
     public boolean isBlockedByTutor() { return blockedByTutor; }
     public void setBlockedByTutor(boolean blockedByTutor) { this.blockedByTutor = blockedByTutor; }
