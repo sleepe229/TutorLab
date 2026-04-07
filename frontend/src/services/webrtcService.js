@@ -131,6 +131,11 @@ export class WebRTCService {
       this.lastError = 'peer';
       return false;
     }
+    // Mirror what startStream() does so audio/video toggling works later.
+    if (this.peer?._pc) {
+      this._audioSender = this.peer._pc.getSenders().find(s => s.track?.kind === 'audio') ?? null;
+      this._videoSender = this.peer._pc.getSenders().find(s => s.track?.kind === 'video') ?? null;
+    }
     return true;
   }
 

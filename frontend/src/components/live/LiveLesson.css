@@ -81,6 +81,11 @@
   display: block;
 }
 
+/* Mirror local webcam preview so left/right match the user's expectation */
+.video-mirrored {
+  transform: scaleX(-1);
+}
+
 .main-video-label {
   position: absolute;
   bottom: 20px;
@@ -569,14 +574,6 @@
   background: rgba(139, 92, 246, 0.3);
 }
 
-.ctrl-btn.muted {
-  background: rgba(248, 113, 113, 0.18);
-  color: rgb(248, 113, 113);
-}
-
-.ctrl-btn.muted:hover {
-  background: rgba(248, 113, 113, 0.3);
-}
 
 .ctrl-btn.danger {
   background: rgba(220, 38, 38, 0.15);
@@ -588,14 +585,6 @@
   color: white;
 }
 
-.ctrl-btn.pdf-btn {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.18) 0%, rgba(0, 212, 255, 0.18) 100%);
-  color: var(--accent-cyan, #00d4ff);
-}
-
-.ctrl-btn.pdf-btn:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.32) 0%, rgba(0, 212, 255, 0.32) 100%);
-}
 
 .ctrl-btn:disabled {
   opacity: 0.35;
@@ -613,6 +602,42 @@
 .ctrl-btn-label {
   font-size: 10px;
   font-weight: 600;
+}
+
+/* ── End lesson header button ───────────────────────────────────────── */
+
+.end-lesson-header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(220, 38, 38, 0.12);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  border-radius: 8px;
+  color: rgb(248, 113, 113);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.end-lesson-header-btn:hover {
+  background: rgba(220, 38, 38, 0.75);
+  border-color: rgba(220, 38, 38, 0.75);
+  color: white;
+}
+
+/* ── Bottom-center separator ────────────────────────────────────────── */
+
+.bottom-center-sep {
+  width: 1px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0 2px;
+  flex-shrink: 0;
 }
 
 /* ── WS connection status ───────────────────────────────────────────── */
@@ -646,28 +671,6 @@
 }
 
 /* ── Header action buttons ──────────────────────────────────────────── */
-
-.share-link-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 8px;
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.share-link-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: var(--accent-cyan, #00d4ff);
-}
 
 /* ── Error / loading state ──────────────────────────────────────────── */
 

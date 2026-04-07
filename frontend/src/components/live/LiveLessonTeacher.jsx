@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import { API_BASE } from '../../config.js';
 import {
   IconPen, IconEraser, IconPointer, IconTrash,
-  IconUpload, IconMic, IconCamera, IconMuteOff, IconMuteOn, IconLink, IconScreen,
+  IconUpload, IconMic, IconCamera, IconLink, IconScreen,
 } from './liveIcons.jsx';
 import './LiveLesson.css';
 
@@ -36,7 +36,6 @@ function LiveLessonTeacher({ tutorId }) {
   const [lineWidth, setLineWidth] = useState(3);
 
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [studentConnected, setStudentConnected] = useState(false);
@@ -72,6 +71,8 @@ function LiveLessonTeacher({ tutorId }) {
   const canvasRef = useRef(null);
   // ICE servers fetched once per session and reused for all peers
   const iceServersRef = useRef(null);
+  // Session ID stored in a ref so it's accessible inside stale WS callbacks
+  const sessionIdRef = useRef(null);
   // Saved media state from sessionStorage — used for auto-restore after page refresh
   const mediaRestoreRef = useRef(null);
   const containerRef = useRef(null);
@@ -86,12 +87,16 @@ function LiveLessonTeacher({ tutorId }) {
   const lineWidthRef = useRef(lineWidth);
   const presentationRef = useRef(presentation);
   const currentSlideRef = useRef(currentSlide);
+  const isAudioEnabledRef = useRef(isAudioEnabled);
+  const isVideoEnabledRef = useRef(isVideoEnabled);
 
   useEffect(() => { toolRef.current = tool; }, [tool]);
   useEffect(() => { colorRef.current = color; }, [color]);
   useEffect(() => { lineWidthRef.current = lineWidth; }, [lineWidth]);
   useEffect(() => { presentationRef.current = presentation; }, [presentation]);
   useEffect(() => { currentSlideRef.current = currentSlide; }, [currentSlide]);
+  useEffect(() => { isAudioEnabledRef.current = isAudioEnabled; }, [isAudioEnabled]);
+  useEffect(() => { isVideoEnabledRef.current = isVideoEnabled; }, [isVideoEnabled]);
 
   // ── Sync local stream to both main and sidebar video elements ────────
   useEffect(() => {
@@ -189,6 +194,7 @@ function LiveLessonTeacher({ tutorId }) {
           } catch { /* ignore malformed data */ }
         }
 
+        sessionIdRef.current = sessionData.sessionId;
         setSession(sessionData);
 
         try {
@@ -297,9 +303,49 @@ function LiveLessonTeacher({ tutorId }) {
     // Ignore own echoes
     if (data.from === 'teacher') return;
 
-    // Presence: student (re)connected — mark them as present in the sidebar
+    // Presence: student (re)connected — clean up stale peers, then mark as present.
+    // Also recreate teacher's outgoing stream peer so the student receives a fresh
+    // offer (the old initiator peer was connected to the previous student instance
+    // and will never be answered again after the student reloaded the page).
     if (data.type === 'presence' && data.role === 'student') {
+      // Clean up stale student→teacher receiving peer
+      if (studentRtcRef.current) {
+        studentRtcRef.current.stopStream();
+        studentRtcRef.current = null;
+      }
+      studentStreamRef.current = null;
+      if (studentVideoRef.current) studentVideoRef.current.srcObject = null;
+      if (sidebarStudentVideoRef.current) sidebarStudentVideoRef.current.srcObject = null;
+      setStudentConnected(false);
+      setStudentVideoActive(false);
       setStudentPresent(true);
+
+      // If teacher has an active media stream, recreate the outgoing peer so the
+      // newly reconnected student receives a fresh offer.
+      const hadAudio = isAudioEnabledRef.current;
+      const hadVideo = isVideoEnabledRef.current;
+      if ((hadAudio || hadVideo) && webrtcRef.current && clientRef.current && sessionIdRef.current) {
+        // Tell student's old dead receiver peer to clean itself up
+        clientRef.current.sendForceReconnect('teacher');
+
+        webrtcRef.current.stopStream();
+        webrtcRef.current = null;
+
+        // Small delay so the student processes force-reconnect and creates a fresh
+        // non-initiator peer before our new offer arrives.
+        setTimeout(async () => {
+          if (!clientRef.current || !iceServersRef.current) return;
+          const rtc = new WebRTCService(
+            clientRef.current, sessionIdRef.current, true, 'teacher', 'teacher', iceServersRef.current
+          );
+          rtc.onRemoteStream = () => {};
+          const ok = await rtc.startStream({ audio: hadAudio, video: hadVideo });
+          if (ok) {
+            webrtcRef.current = rtc;
+            if (hadVideo) clientRef.current?.sendMediaState('teacher', true);
+          }
+        }, 400);
+      }
       return;
     }
 
@@ -578,7 +624,6 @@ function LiveLessonTeacher({ tutorId }) {
       if (isVideoEnabled || isScreenSharing) {
         if (webrtcRef.current) await webrtcRef.current.disableAudio();
         setIsAudioEnabled(false);
-        setIsMuted(false);
       } else {
         webrtcRef.current?.stopStream();
         webrtcRef.current = null;
@@ -586,16 +631,8 @@ function LiveLessonTeacher({ tutorId }) {
         if (sidebarLocalVideoRef.current) { sidebarLocalVideoRef.current.srcObject = null; }
         setIsAudioEnabled(false);
         setIsVideoEnabled(false);
-        setIsMuted(false);
         setFocusedView(prev => prev === 'local' ? (presentationRef.current ? 'pdf' : null) : prev);
       }
-    }
-  };
-
-  const toggleMute = () => {
-    if (webrtcRef.current) {
-      const enabled = webrtcRef.current.toggleMute();
-      setIsMuted(!enabled);
     }
   };
 
@@ -633,7 +670,6 @@ function LiveLessonTeacher({ tutorId }) {
       if (sidebarLocalVideoRef.current) sidebarLocalVideoRef.current.srcObject = null;
       setIsScreenSharing(false);
       setIsAudioEnabled(false);
-      setIsMuted(false);
       setFocusedView(prev => prev === 'local' ? (presentationRef.current ? 'pdf' : null) : prev);
       // Fall through — webrtcRef.current is now null, camera start proceeds below
     }
@@ -663,10 +699,9 @@ function LiveLessonTeacher({ tutorId }) {
 
     const rtc = new WebRTCService(clientRef.current, session.sessionId, true, 'teacher', 'teacher', iceServersRef.current);
     rtc.onRemoteStream = () => {};
-    const ok = await rtc.startStream({ audio: true, video: true });
+    const ok = await rtc.startStream({ audio: false, video: true });
     if (ok) {
       webrtcRef.current = rtc;
-      setIsAudioEnabled(true);
       setIsVideoEnabled(true);
       clientRef.current?.sendMediaState('teacher', true);
     } else {
@@ -704,7 +739,6 @@ function LiveLessonTeacher({ tutorId }) {
         webrtcRef.current = null;
         setIsAudioEnabled(false);
         setIsVideoEnabled(false);
-        setIsMuted(false);
       }
 
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
@@ -841,16 +875,14 @@ function LiveLessonTeacher({ tutorId }) {
           {wsConnected ? 'Подключено' : 'Подключение...'}
         </span>
 
-        {session && (
-          <button
-            onClick={handleCopyLink}
-            className="share-link-btn"
-            title="Скопировать ссылку для ученика"
-            aria-label="Скопировать ссылку для ученика"
-          >
-            <IconLink /> Ссылка
-          </button>
-        )}
+        <button
+          onClick={handleEndLesson}
+          className="end-lesson-header-btn"
+          aria-label="Завершить урок"
+          title="Завершить урок"
+        >
+          ✕ Завершить
+        </button>
       </div>
 
       {/* ── End-lesson modal ── */}
@@ -979,7 +1011,7 @@ function LiveLessonTeacher({ tutorId }) {
                 autoPlay
                 muted
                 playsInline
-                className="main-video-el"
+                className={`main-video-el${isVideoEnabled && !isScreenSharing ? ' video-mirrored' : ''}`}
               />
               <div className="main-video-label">
                 {isScreenSharing ? 'Ваш экран' : 'Вы'}
@@ -1068,7 +1100,7 @@ function LiveLessonTeacher({ tutorId }) {
                 autoPlay
                 muted
                 playsInline
-                className="tile-video"
+                className={`tile-video${isVideoEnabled && !isScreenSharing ? ' video-mirrored' : ''}`}
               />
               <div className="tile-label">{isScreenSharing ? 'Экран' : 'Вы'}</div>
             </div>
@@ -1219,39 +1251,42 @@ function LiveLessonTeacher({ tutorId }) {
             onClick={toggleCamera}
             className={`ctrl-btn ${isVideoEnabled ? 'active' : ''}`}
             aria-pressed={isVideoEnabled}
+            disabled={isScreenSharing}
             aria-label={isVideoEnabled ? 'Выключить камеру' : 'Включить камеру'}
-            title={isVideoEnabled ? 'Выключить камеру' : 'Включить камеру'}
+            title={isScreenSharing ? 'Недоступно во время трансляции экрана' : (isVideoEnabled ? 'Выключить камеру' : 'Включить камеру')}
           >
             <span className="ctrl-btn-icon"><IconCamera /></span>
             <span className="ctrl-btn-label">Камера</span>
           </button>
 
-          {isAudioEnabled && (
-            <button
-              onClick={toggleMute}
-              className={`ctrl-btn ${isMuted ? 'muted' : ''}`}
-              aria-pressed={isMuted}
-              aria-label={isMuted ? 'Включить звук' : 'Заглушить'}
-              title={isMuted ? 'Включить звук' : 'Заглушить'}
-            >
-              <span className="ctrl-btn-icon">{isMuted ? <IconMuteOff /> : <IconMuteOn />}</span>
-              <span className="ctrl-btn-label">{isMuted ? 'Без звука' : 'Звук'}</span>
-            </button>
-          )}
-
           <button
             onClick={toggleScreenShare}
             className={`ctrl-btn ${isScreenSharing ? 'screen-on' : ''}`}
             aria-pressed={isScreenSharing}
+            disabled={isVideoEnabled}
             aria-label={isScreenSharing ? 'Остановить демонстрацию' : 'Демонстрация экрана'}
-            title={isScreenSharing ? 'Остановить демонстрацию' : 'Демонстрация экрана'}
+            title={isVideoEnabled ? 'Недоступно при включённой камере' : (isScreenSharing ? 'Остановить демонстрацию' : 'Демонстрация экрана')}
           >
             <span className="ctrl-btn-icon"><IconScreen /></span>
             <span className="ctrl-btn-label">{isScreenSharing ? 'Стоп' : 'Экран'}</span>
           </button>
+
+          <div className="bottom-center-sep" />
+
+          <label
+            htmlFor="pdf-upload"
+            className="ctrl-btn"
+            role="button"
+            tabIndex={0}
+            title="Загрузить PDF презентацию"
+            onKeyDown={e => e.key === 'Enter' && document.getElementById('pdf-upload').click()}
+          >
+            <span className="ctrl-btn-icon"><IconUpload /></span>
+            <span className="ctrl-btn-label">{loading ? '...' : 'PDF'}</span>
+          </label>
         </div>
 
-        {/* Right: PDF upload + end lesson */}
+        {/* Right: copy link */}
         <div className="bottom-right">
           <input
             type="file"
@@ -1261,27 +1296,18 @@ function LiveLessonTeacher({ tutorId }) {
             id="pdf-upload"
             disabled={loading}
           />
-          <label
-            htmlFor="pdf-upload"
-            className="ctrl-btn pdf-btn"
-            role="button"
-            tabIndex={0}
-            title="Загрузить PDF презентацию"
-            onKeyDown={e => e.key === 'Enter' && document.getElementById('pdf-upload').click()}
-          >
-            <span className="ctrl-btn-icon"><IconUpload /></span>
-            <span className="ctrl-btn-label">{loading ? '...' : 'PDF'}</span>
-          </label>
 
-          <button
-            onClick={handleEndLesson}
-            className="ctrl-btn danger"
-            aria-label="Завершить урок"
-            title="Завершить урок"
-          >
-            <span className="ctrl-btn-icon">✕</span>
-            <span className="ctrl-btn-label">Завершить</span>
-          </button>
+          {session && (
+            <button
+              onClick={handleCopyLink}
+              className="ctrl-btn"
+              aria-label="Скопировать ссылку для ученика"
+              title="Скопировать ссылку для ученика"
+            >
+              <span className="ctrl-btn-icon"><IconLink /></span>
+              <span className="ctrl-btn-label">Ссылка</span>
+            </button>
+          )}
         </div>
 
       </div>

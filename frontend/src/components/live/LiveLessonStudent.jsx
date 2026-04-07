@@ -7,7 +7,7 @@ import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { API_BASE } from '../../config.js';
 import {
-  IconMic, IconCamera, IconMuteOff, IconMuteOn,
+  IconMic, IconCamera,
 } from './liveIcons.jsx';
 import './LiveLesson.css';
 
@@ -33,7 +33,6 @@ function LiveLessonStudent() {
   const [teacherVideoActive, setTeacherVideoActive] = useState(false);
   const [isAudioEnabled, setIsAudioEnabled] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
   const [pointerFraction, setPointerFraction] = useState(null);
 
   // 'pdf' | 'teacher' | 'local' | null
@@ -191,8 +190,14 @@ function LiveLessonStudent() {
     rtc.onRemoteStream = (stream) => {
       teacherStreamRef.current = stream;
       setTeacherMediaConnected(true);
-      if (teacherVideoRef.current) teacherVideoRef.current.srcObject = stream;
-      if (sidebarTeacherVideoRef.current) sidebarTeacherVideoRef.current.srcObject = stream;
+      if (teacherVideoRef.current) {
+        teacherVideoRef.current.srcObject = stream;
+        teacherVideoRef.current.play().catch(() => {});
+      }
+      if (sidebarTeacherVideoRef.current) {
+        sidebarTeacherVideoRef.current.srcObject = stream;
+        sidebarTeacherVideoRef.current.play().catch(() => {});
+      }
 
       // Show video as long as there is at least one live video track.
       // Do NOT use onmute — muted fires during renegotiation/ICE restart and would
@@ -239,6 +244,11 @@ function LiveLessonStudent() {
       // A new one will be created when teacher sends a fresh offer (after they
       // re-enable their camera/mic).
       destroyTeacherPeer();
+
+      // Re-announce student presence so teacher's tile is restored even if
+      // the student has no active media (without this the teacher would never
+      // receive a signal and studentPresent would stay false after their reload).
+      clientRef.current?.sendPresence('student');
 
       const hadAudio = isAudioEnabledRef.current;
       const hadVideo = isVideoEnabledRef.current;
@@ -308,7 +318,6 @@ function LiveLessonStudent() {
       if (isVideoEnabled) {
         await studentRtcRef.current.disableAudio();
         setIsAudioEnabled(false);
-        setIsMuted(false);
       } else {
         studentRtcRef.current?.stopStream();
         studentRtcRef.current = null;
@@ -316,7 +325,6 @@ function LiveLessonStudent() {
         if (sidebarLocalVideoRef.current) { sidebarLocalVideoRef.current.srcObject = null; }
         setIsAudioEnabled(false);
         setIsVideoEnabled(false);
-        setIsMuted(false);
         setFocusedView(prev => prev === 'local'
           ? (presentationRef.current ? 'pdf' : (teacherStreamRef.current ? 'teacher' : null))
           : prev);
@@ -361,23 +369,15 @@ function LiveLessonStudent() {
       } else {
         const rtc = new WebRTCService(clientRef.current, sessionId, true, 'student', 'student', iceServersRef.current);
         rtc.onRemoteStream = () => {};
-        const ok = await rtc.startStream({ audio: true, video: true });
+        const ok = await rtc.startStream({ audio: false, video: true });
         if (ok) {
           studentRtcRef.current = rtc;
-          setIsAudioEnabled(true);
           setIsVideoEnabled(true);
           clientRef.current?.sendMediaState('student', true);
         } else {
           toast.error(mediaErrorMessage(rtc, 'камере'));
         }
       }
-    }
-  };
-
-  const toggleMute = () => {
-    if (studentRtcRef.current) {
-      const enabled = studentRtcRef.current.toggleMute();
-      setIsMuted(!enabled);
     }
   };
 
@@ -466,13 +466,11 @@ function LiveLessonStudent() {
 
         <button
           onClick={handleLeaveLesson}
-          className="ctrl-btn danger"
-          style={{ marginLeft: 'auto', flexDirection: 'row', height: 36, padding: '0 14px', gap: 6, minWidth: 'unset' }}
+          className="end-lesson-header-btn"
           aria-label="Покинуть урок"
           title="Покинуть урок"
         >
-          <span style={{ fontSize: 14 }}>✕</span>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Покинуть</span>
+          ✕ Покинуть
         </button>
       </div>
 
@@ -528,7 +526,10 @@ function LiveLessonStudent() {
                 <video
                   ref={(el) => {
                     teacherVideoRef.current = el;
-                    if (el && teacherStreamRef.current) el.srcObject = teacherStreamRef.current;
+                    if (el && teacherStreamRef.current) {
+                      el.srcObject = teacherStreamRef.current;
+                      el.play().catch(() => {});
+                    }
                   }}
                   autoPlay
                   playsInline
@@ -555,7 +556,8 @@ function LiveLessonStudent() {
                 autoPlay
                 muted
                 playsInline
-                className="main-video-el"
+                className="main-video-el video-mirrored"
+                style={{ transform: 'scaleX(-1)' }}
               />
               <div className="main-video-label">Вы</div>
             </div>
@@ -614,7 +616,10 @@ function LiveLessonStudent() {
                 <video
                   ref={(el) => {
                     sidebarTeacherVideoRef.current = el;
-                    if (el && teacherStreamRef.current) el.srcObject = teacherStreamRef.current;
+                    if (el && teacherStreamRef.current) {
+                      el.srcObject = teacherStreamRef.current;
+                      el.play().catch(() => {});
+                    }
                   }}
                   autoPlay
                   playsInline
@@ -648,7 +653,8 @@ function LiveLessonStudent() {
                 autoPlay
                 muted
                 playsInline
-                className="tile-video"
+                className="tile-video video-mirrored"
+                style={{ transform: 'scaleX(-1)' }}
               />
               <div className="tile-label">Вы</div>
             </div>
@@ -692,18 +698,6 @@ function LiveLessonStudent() {
             <span className="ctrl-btn-label">Камера</span>
           </button>
 
-          {isAudioEnabled && (
-            <button
-              onClick={toggleMute}
-              className={`ctrl-btn ${isMuted ? 'muted' : ''}`}
-              aria-pressed={isMuted}
-              aria-label={isMuted ? 'Включить звук' : 'Заглушить'}
-              title={isMuted ? 'Включить звук' : 'Заглушить'}
-            >
-              <span className="ctrl-btn-icon">{isMuted ? <IconMuteOff /> : <IconMuteOn />}</span>
-              <span className="ctrl-btn-label">{isMuted ? 'Без звука' : 'Звук'}</span>
-            </button>
-          )}
         </div>
 
         {/* Right: empty spacer to balance layout */}
