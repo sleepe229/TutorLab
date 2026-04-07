@@ -133,7 +133,7 @@
         if (!window.process) window.process = {};
         var p = window.process;
         if (!p.env) p.env = {};
-        if (!p.env.NODE_ENV) p.env.NODE_ENV = 'production';
+        if (!p.env.NODE_ENV) p.env.NODE_ENV = '%MODE%';
         if (typeof p.nextTick !== 'function') {
           p.nextTick = typeof queueMicrotask === 'function'
             ? function(fn) { var a = Array.prototype.slice.call(arguments, 1); queueMicrotask(function() { fn.apply(null, a); }); }

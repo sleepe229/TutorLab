@@ -589,7 +589,12 @@ function LiveLessonStudent() {
               title="Показать презентацию"
               role="button"
               tabIndex={0}
-              onKeyDown={e => e.key === 'Enter' && setFocusedView('pdf')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setFocusedView('pdf');
+                }
+              }}
             >
               <img
                 src={`${API_BASE}${presentation.slides[currentSlide]}`}
@@ -610,7 +615,12 @@ function LiveLessonStudent() {
               title="Показать видео преподавателя"
               role="button"
               tabIndex={0}
-              onKeyDown={e => e.key === 'Enter' && setFocusedView('teacher')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setFocusedView('teacher');
+                }
+              }}
             >
               {teacherMediaConnected && teacherVideoActive ? (
                 <video
@@ -643,7 +653,12 @@ function LiveLessonStudent() {
               title="Показать вашу камеру"
               role="button"
               tabIndex={0}
-              onKeyDown={e => e.key === 'Enter' && setFocusedView('local')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setFocusedView('local');
+                }
+              }}
             >
               <video
                 ref={(el) => {

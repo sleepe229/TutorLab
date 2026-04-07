@@ -94,7 +94,7 @@ public class LiveSessionController {
     }
 
     /**
-     * Returns ICE server configuration (STUN always; TURN when configured via env vars).
+     * Returns ICE server configuration (STUN always; TURN only when fully configured).
      * Public endpoint — no auth required. The TURN credential is not secret by itself;
      * for production with a paid TURN service, switch to time-limited HMAC credentials.
      */
@@ -106,11 +106,15 @@ public class LiveSessionController {
         stun.put("urls", List.of("stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"));
         iceServers.add(stun);
 
-        if (turnUrl != null && !turnUrl.isBlank()) {
+        boolean hasTurnUrl = turnUrl != null && !turnUrl.isBlank();
+        boolean hasTurnUsername = turnUsername != null && !turnUsername.isBlank();
+        boolean hasTurnCredential = turnCredential != null && !turnCredential.isBlank();
+
+        if (hasTurnUrl && hasTurnUsername && hasTurnCredential) {
             Map<String, Object> turn = new HashMap<>();
             turn.put("urls", List.of(turnUrl));
-            if (turnUsername != null && !turnUsername.isBlank()) turn.put("username", turnUsername);
-            if (turnCredential != null && !turnCredential.isBlank()) turn.put("credential", turnCredential);
+            turn.put("username", turnUsername);
+            turn.put("credential", turnCredential);
             iceServers.add(turn);
         }
 

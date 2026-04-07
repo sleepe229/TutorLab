@@ -1069,7 +1069,12 @@ function LiveLessonTeacher({ tutorId }) {
               title="Показать презентацию"
               role="button"
               tabIndex={0}
-              onKeyDown={e => e.key === 'Enter' && setFocusedView('pdf')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setFocusedView('pdf');
+                }
+              }}
             >
               <img
                 src={`${API_BASE}${presentation.slides[currentSlide]}`}
@@ -1090,7 +1095,12 @@ function LiveLessonTeacher({ tutorId }) {
               title={isScreenSharing ? 'Показать ваш экран' : 'Показать вашу камеру'}
               role="button"
               tabIndex={0}
-              onKeyDown={e => e.key === 'Enter' && setFocusedView('local')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setFocusedView('local');
+                }
+              }}
             >
               <video
                 ref={(el) => {
@@ -1114,7 +1124,12 @@ function LiveLessonTeacher({ tutorId }) {
               title="Показать видео ученика"
               role="button"
               tabIndex={0}
-              onKeyDown={e => e.key === 'Enter' && setFocusedView('student')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setFocusedView('student');
+                }
+              }}
             >
               {studentConnected && studentVideoActive ? (
                 <video
@@ -1251,9 +1266,8 @@ function LiveLessonTeacher({ tutorId }) {
             onClick={toggleCamera}
             className={`ctrl-btn ${isVideoEnabled ? 'active' : ''}`}
             aria-pressed={isVideoEnabled}
-            disabled={isScreenSharing}
-            aria-label={isVideoEnabled ? 'Выключить камеру' : 'Включить камеру'}
-            title={isScreenSharing ? 'Недоступно во время трансляции экрана' : (isVideoEnabled ? 'Выключить камеру' : 'Включить камеру')}
+            aria-label={isScreenSharing ? 'Переключиться с экрана на камеру' : (isVideoEnabled ? 'Выключить камеру' : 'Включить камеру')}
+            title={isScreenSharing ? 'Переключиться с демонстрации экрана на камеру' : (isVideoEnabled ? 'Выключить камеру' : 'Включить камеру')}
           >
             <span className="ctrl-btn-icon"><IconCamera /></span>
             <span className="ctrl-btn-label">Камера</span>

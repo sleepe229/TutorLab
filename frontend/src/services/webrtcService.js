@@ -215,7 +215,9 @@ export class WebRTCService {
   /** True once the ICE connection is fully established. */
   isConnected() {
     const state = this.getIceConnectionState();
-    return state === 'connected' || state === 'completed';
+    if (state === 'connected' || state === 'completed') return true;
+    // Fallback for early lifecycle/mocked peers where ICE state is unavailable.
+    return !!this.peer?.connected;
   }
 
   /** True if this peer has an audio sender (enables disableAudio / enableAudio). */

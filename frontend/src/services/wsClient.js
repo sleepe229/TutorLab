@@ -21,14 +21,16 @@ export const connectToTutorUpdates = (tutorIds, callbacks = {}) => {
   if (!tutorIds.length) return { disconnect: () => {} };
 
   let stompClient      = null;
+  let currentSocket    = null;
   let subscriptions    = [];
   let isDisconnected   = false;
   let reconnectTimer   = null;
   let reconnectAttempt = 0;
 
   const doConnect = () => {
-    const socket = new SockJS(`${WS_URL}/ws`);
-    stompClient = Stomp.over(socket);
+    try { currentSocket?.close(); } catch (_) {}
+    currentSocket = new SockJS(`${WS_URL}/ws`);
+    stompClient = Stomp.over(currentSocket);
     stompClient.debug = () => {};
 
     stompClient.connect({}, () => {
@@ -57,6 +59,8 @@ export const connectToTutorUpdates = (tutorIds, callbacks = {}) => {
       subscriptions.forEach(sub => { try { sub.unsubscribe(); } catch (_) {} });
       subscriptions = [];
       try { if (stompClient?.connected) stompClient.disconnect(); } catch (_) {}
+      try { currentSocket?.close(); } catch (_) {}
+      currentSocket = null;
     },
   };
 };
@@ -73,6 +77,7 @@ export const connectToTutorUpdates = (tutorIds, callbacks = {}) => {
  */
 export const connectToSession = (sessionId, callbacks = {}) => {
   let stompClient      = null;
+  let currentSocket    = null;
   let subscriptions    = {};
   let isDisconnected   = false;
   let reconnectTimer   = null;
@@ -110,8 +115,9 @@ export const connectToSession = (sessionId, callbacks = {}) => {
 
   const doConnect = () => {
     // Always create a fresh SockJS socket on each attempt
-    const socket = new SockJS(`${WS_URL}/ws`);
-    stompClient = Stomp.over(socket);
+    try { currentSocket?.close(); } catch (_) {}
+    currentSocket = new SockJS(`${WS_URL}/ws`);
+    stompClient = Stomp.over(currentSocket);
     stompClient.debug = () => {};
 
     stompClient.connect({}, () => {
@@ -161,6 +167,8 @@ export const connectToSession = (sessionId, callbacks = {}) => {
       Object.values(subscriptions).forEach(sub => { try { sub.unsubscribe(); } catch (_) {} });
       subscriptions = {};
       try { if (stompClient?.connected) stompClient.disconnect(); } catch (_) {}
+      try { currentSocket?.close(); } catch (_) {}
+      currentSocket = null;
     },
   };
 };
