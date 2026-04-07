@@ -140,6 +140,13 @@ public class FileUploadController {
             return ResponseEntity.badRequest().body(response);
         }
 
+        // Валидация ID, чтобы избежать использования в качестве пути
+        // Разрешаем только буквы, цифры, дефис и подчеркивание
+        if (!tutorId.matches("^[A-Za-z0-9_-]+$") || !studentId.matches("^[A-Za-z0-9_-]+$")) {
+            response.put("error", "Неверный формат ID репетитора или студента");
+            return ResponseEntity.badRequest().body(response);
+        }
+
         // Проверка размера файла (макс 10MB)
         if (file.getSize() > 10 * 1024 * 1024) {
             response.put("error", "Размер файла не должен превышать 10MB");
@@ -147,9 +154,18 @@ public class FileUploadController {
         }
 
         try {
+            // Базовая директория для материалов
+            Path baseMaterialsPath = Paths.get(materialsDir).normalize().toAbsolutePath();
+
             // Создаем структуру папок: materials/{tutorId}/{studentId}/
-            Path tutorPath = Paths.get(materialsDir, tutorId);
-            Path studentPath = tutorPath.resolve(studentId);
+            Path tutorPath = baseMaterialsPath.resolve(tutorId).normalize();
+            Path studentPath = tutorPath.resolve(studentId).normalize();
+
+            // Убеждаемся, что результирующий путь остается внутри базовой директории
+            if (!studentPath.startsWith(baseMaterialsPath)) {
+                response.put("error", "Неверный путь для сохранения файла");
+                return ResponseEntity.badRequest().body(response);
+            }
             
             if (!Files.exists(studentPath)) {
                 Files.createDirectories(studentPath);
@@ -164,9 +180,20 @@ public class FileUploadController {
             // Очищаем имя файла от недопустимых символов, но сохраняем русские буквы
             // Разрешаем: буквы (латиница и кириллица), цифры, точки, дефисы, подчеркивания
             String safeFilename = originalFilename.replaceAll("[^\\p{L}\\p{N}.\\-_]", "_");
+
+            // Дополнительная проверка имени файла: не должно содержать разделителей путей или ссылок на родительский каталог
+            if (safeFilename.contains("..") || safeFilename.contains("/") || safeFilename.contains("\\")) {
+                response.put("error", "Неверное имя файла");
+                return ResponseEntity.badRequest().body(response);
+            }
             
             // Проверяем, существует ли файл с таким именем
-            Path filePath = studentPath.resolve(safeFilename);
+            Path filePath = studentPath.resolve(safeFilename).normalize();
+            if (!filePath.startsWith(baseMaterialsPath)) {
+                response.put("error", "Неверный путь для сохранения файла");
+                return ResponseEntity.badRequest().body(response);
+            }
+
             if (Files.exists(filePath)) {
                 // Если файл существует, добавляем timestamp перед расширением
                 int lastDotIndex = safeFilename.lastIndexOf('.');
@@ -177,7 +204,11 @@ public class FileUploadController {
                 } else {
                     safeFilename = safeFilename + "_" + System.currentTimeMillis();
                 }
-                filePath = studentPath.resolve(safeFilename);
+                filePath = studentPath.resolve(safeFilename).normalize();
+                if (!filePath.startsWith(baseMaterialsPath)) {
+                    response.put("error", "Неверный путь для сохранения файла");
+                    return ResponseEntity.badRequest().body(response);
+                }
             }
 
             // Сохраняем файл
