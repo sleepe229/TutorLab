@@ -28,15 +28,28 @@ public class PdfServiceImpl implements PdfService {
     @Value("${app.upload.dir:users-photos}")
     private String uploadDir;
 
+    private Path getSafeSessionPath(String sessionId) throws IOException {
+        if (sessionId == null || !sessionId.matches("^[A-Za-z0-9_-]+$")) {
+            throw new IOException("Invalid session ID: " + sessionId);
+        }
+        Path basePath = Paths.get(uploadDir, "slides").toAbsolutePath().normalize();
+        Path sessionPath = basePath.resolve(sessionId).normalize();
+        if (!sessionPath.startsWith(basePath)) {
+            log.warn("Rejected unsafe session path for sessionId={}: {}", sessionId, sessionPath);
+            throw new IOException("Invalid session path");
+        }
+        if (!Files.exists(sessionPath)) {
+            Files.createDirectories(sessionPath);
+        }
+        return sessionPath;
+    }
+
     @Override
     public List<String> convertPdfToImages(MultipartFile pdfFile, String sessionId) throws IOException {
         List<String> imageUrls = new ArrayList<>();
 
         // Создаём папку для слайдов сессии
-        Path sessionPath = Paths.get(uploadDir, "slides", sessionId);
-        if (!Files.exists(sessionPath)) {
-            Files.createDirectories(sessionPath);
-        }
+        Path sessionPath = getSafeSessionPath(sessionId);
 
         try (PDDocument document = PDDocument.load(pdfFile.getInputStream())) {
             PDFRenderer renderer = new PDFRenderer(document);
@@ -63,10 +76,7 @@ public class PdfServiceImpl implements PdfService {
         log.info("Starting async PDF conversion for session={}, bytes={}", sessionId, pdfBytes.length);
         try {
             List<String> imageUrls = new ArrayList<>();
-            Path sessionPath = Paths.get(uploadDir, "slides", sessionId);
-            if (!Files.exists(sessionPath)) {
-                Files.createDirectories(sessionPath);
-            }
+            Path sessionPath = getSafeSessionPath(sessionId);
             try (PDDocument document = PDDocument.load(pdfBytes)) {
                 PDFRenderer renderer = new PDFRenderer(document);
                 for (int page = 0; page < document.getNumberOfPages(); page++) {
