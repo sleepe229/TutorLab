@@ -17,6 +17,9 @@
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--glass-border);
+  gap: 8px;
+  flex-wrap: nowrap;
+  min-width: 0;
 }
 
 .calendar-month-year {
@@ -24,17 +27,25 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .calendar-month-year h3 {
   margin: 0;
   color: var(--text-primary);
-  font-size: 18px;
+  font-size: clamp(14px, 3.8vw, 18px);
   font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .today-btn {
-  padding: 6px 16px;
+  padding: 6px 12px;
   background: var(--glass-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -45,6 +56,9 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 100%;
 }
 
 .today-btn:hover {
@@ -55,6 +69,7 @@
 .calendar-nav-btn {
   width: 32px;
   height: 32px;
+  flex-shrink: 0;
   background: var(--glass-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -175,21 +190,42 @@
 
 @media (max-width: 768px) {
   .calendar-container {
-    padding: 16px;
+    padding: 12px;
+    max-width: 100%;
+  }
+
+  .calendar-header {
+    gap: 6px;
   }
   
   .calendar-day {
-    min-height: 50px;
-    padding: 6px;
+    min-height: 44px;
+    padding: 4px;
   }
   
   .day-number {
-    font-size: 14px;
+    font-size: 12px;
+    top: 2px;
   }
   
   .lesson-time {
-    font-size: 9px;
-    padding: 2px 4px;
+    font-size: 8px;
+    padding: 1px 3px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (max-width: 380px) {
+  .calendar-nav-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+  .today-btn {
+    padding: 5px 8px;
+    font-size: 11px;
   }
 }
 

@@ -348,44 +348,45 @@ function StudentDetail({ tutorId }) {
                 {[...lessons].sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date)).map((l, i) => {
                   const lessonKey = `${l.date}|${l.time}|${l.note || ''}`;
                   const status = student?.lessonPayments?.[lessonKey] || student?.lessonPayments?.[l.date] || 'PENDING';
-                  const color = PAYMENT_COLORS[status] || '#f59e0b';
                   const lessonIndex = i + 1;
                   const isTrial = lessonIndex <= trialLessonsCount;
                   const effectiveStatus = isTrial ? 'TRIAL' : status;
                   return (
                     <div key={lessonKey} className="payment-lesson-row">
-                      <div className="payment-lesson-info">
-                        <span className="payment-lesson-date">
-                          {parseLocalDate(l.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
-                          {l.time && ` ${l.time}`}
-                        </span>
+                      <span className="payment-lesson-date">
+                        {parseLocalDate(l.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}
+                        {l.time && ` ${l.time}`}
+                      </span>
+                      <div className="payment-lesson-status-row">
                         <span
                           className="payment-status-badge"
                           style={{ background: `${PAYMENT_COLORS[effectiveStatus]}20`, color: PAYMENT_COLORS[effectiveStatus] }}
                         >
                           {PAYMENT_LABELS[effectiveStatus]}
                         </span>
+                        {!isTrial && (
+                          <div className="payment-actions">
+                            {status !== 'PAID_EXTERNAL' && (
+                              <button
+                                type="button"
+                                className="btn-payment btn-payment-external"
+                                onClick={() => handleSetPaymentStatus(lessonKey, 'PAID_EXTERNAL')}
+                              >
+                                Оплачено вне сервиса
+                              </button>
+                            )}
+                            {(status === 'PAID_EXTERNAL' || status === 'PAID_PLATFORM') && (
+                              <button
+                                type="button"
+                                className="btn-payment btn-payment-undo"
+                                onClick={() => handleSetPaymentStatus(lessonKey, 'PENDING')}
+                              >
+                                Отменить
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      {!isTrial && (
-                        <div className="payment-actions">
-                          {status !== 'PAID_EXTERNAL' && (
-                            <button
-                              className="btn-payment btn-payment-external"
-                              onClick={() => handleSetPaymentStatus(lessonKey, 'PAID_EXTERNAL')}
-                            >
-                              Оплачено вне сервиса
-                            </button>
-                          )}
-                          {(status === 'PAID_EXTERNAL' || status === 'PAID_PLATFORM') && (
-                            <button
-                              className="btn-payment btn-payment-undo"
-                              onClick={() => handleSetPaymentStatus(lessonKey, 'PENDING')}
-                            >
-                              Отменить
-                            </button>
-                          )}
-                        </div>
-                      )}
                     </div>
                   );
                 })}

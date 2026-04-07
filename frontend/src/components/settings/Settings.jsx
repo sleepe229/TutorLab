@@ -105,18 +105,27 @@ function Settings({ tutorId, onBack, onLogout }) {
       }
 
       const subjects = formData.subjects;
+      let hourlyRate = null;
+      if (formData.hourlyRate !== '' && formData.hourlyRate != null) {
+        const n = parseInt(formData.hourlyRate, 10);
+        if (!Number.isNaN(n)) hourlyRate = n;
+      }
       await tutorApi.updateTutor(tutorId, {
         fullName: formData.fullName,
         about: formData.about,
         photoUrl,
         subjects,
-        hourlyRate: formData.hourlyRate ? parseInt(formData.hourlyRate) : null,
+        hourlyRate,
         isPublicProfile: formData.isPublicProfile,
       });
       toast.success('Настройки сохранены');
       loadTutor();
-    } catch {
-      toast.error('Ошибка при сохранении настроек');
+    } catch (err) {
+      const msg =
+        err.response?.data?.error ||
+        (typeof err.response?.data === 'string' ? err.response.data : null) ||
+        err.message;
+      toast.error(msg ? String(msg) : 'Ошибка при сохранении настроек');
     } finally {
       setSaving(false);
     }
