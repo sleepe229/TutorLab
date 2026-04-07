@@ -261,3 +261,20 @@
 @media (max-width: 600px) {
   .sd-analytics-stats { grid-template-columns: repeat(2, 1fr); }
 }
+
+@media (max-width: 768px) {
+  .sd-nav-inner {
+    padding: 0 16px;
+    gap: 8px;
+  }
+
+  .sd-nav-tabs {
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .sd-nav-tabs::-webkit-scrollbar {
+    display: none;
+  }
+}

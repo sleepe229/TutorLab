@@ -388,3 +388,19 @@
   outline: none;
 }
 .students-search:focus { border-color: var(--accent-primary); }
+
+@media (max-width: 1024px) {
+  .top-nav-links {
+    gap: 8px;
+  }
+
+  .nav-link {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  .page-header-actions .btn {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
