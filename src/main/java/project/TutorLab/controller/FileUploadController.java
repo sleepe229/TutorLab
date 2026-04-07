@@ -140,6 +140,13 @@ public class FileUploadController {
             return ResponseEntity.badRequest().body(response);
         }
 
+        // Базовая проверка ID на наличие попыток обхода директорий
+        if (tutorId.contains("..") || tutorId.contains("/") || tutorId.contains("\\") ||
+                studentId.contains("..") || studentId.contains("/") || studentId.contains("\\")) {
+            response.put("error", "Недопустимые символы в ID репетитора или студента");
+            return ResponseEntity.badRequest().body(response);
+        }
+
         // Проверка размера файла (макс 10MB)
         if (file.getSize() > 10 * 1024 * 1024) {
             response.put("error", "Размер файла не должен превышать 10MB");
@@ -148,8 +155,14 @@ public class FileUploadController {
 
         try {
             // Создаем структуру папок: materials/{tutorId}/{studentId}/
-            Path tutorPath = Paths.get(materialsDir, tutorId);
-            Path studentPath = tutorPath.resolve(studentId);
+            Path tutorPath = Paths.get(materialsDir, tutorId).normalize().toAbsolutePath();
+            Path studentPath = tutorPath.resolve(studentId).normalize().toAbsolutePath();
+
+            // Гарантируем, что путь студента остается внутри папки репетитора
+            if (!studentPath.startsWith(tutorPath)) {
+                response.put("error", "Недопустимый путь для сохранения файла");
+                return ResponseEntity.badRequest().body(response);
+            }
             
             if (!Files.exists(studentPath)) {
                 Files.createDirectories(studentPath);
