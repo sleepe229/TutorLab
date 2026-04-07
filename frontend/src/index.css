@@ -143,6 +143,7 @@ body {
   color: var(--text-primary);
   transition: background-color 0.2s, color 0.2s;
   line-height: 1.5;
+  overflow-x: hidden;
 }
 
 code {
@@ -255,4 +256,20 @@ code {
 .btn-success:hover:not(:disabled) {
   background: #4A5CE0;
   transform: translateY(-1px);
+}
+
+@media (max-width: 1024px) {
+  .container {
+    padding: 0 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 16px;
+  }
+
+  .btn {
+    max-width: 100%;
+  }
 }
