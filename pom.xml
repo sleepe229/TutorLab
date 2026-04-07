@@ -79,6 +79,12 @@
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 
+		<!-- Enable Spring Security to protect actuator and application endpoints -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+
 		<!-- Bean Validation -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
