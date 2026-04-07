@@ -341,11 +341,16 @@
 
   .page-header-actions {
     width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .page-header-actions .btn {
-    flex: 1;
+    width: 100%;
+    min-width: 0;
     justify-content: center;
+    white-space: normal;
   }
 
   .student-grid {
