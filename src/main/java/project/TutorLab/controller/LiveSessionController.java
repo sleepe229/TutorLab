@@ -60,6 +60,15 @@ public class LiveSessionController {
     @Value("${app.upload.dir:users-photos}")
     private String uploadDir;
 
+    @Value("${app.turn.url:}")
+    private String turnUrl;
+
+    @Value("${app.turn.username:}")
+    private String turnUsername;
+
+    @Value("${app.turn.credential:}")
+    private String turnCredential;
+
     public LiveSessionController(LiveSessionService liveSessionService, LiveSessionWsController wsController,
                                  PdfService pdfService, JwtService jwtService,
                                  StudentAccountService studentAccountService, StudentService studentService,
@@ -82,6 +91,30 @@ public class LiveSessionController {
     }
 
     public record LiveSessionSummary(boolean active, String sessionId) {
+    }
+
+    /**
+     * Returns ICE server configuration (STUN always; TURN when configured via env vars).
+     * Public endpoint — no auth required. The TURN credential is not secret by itself;
+     * for production with a paid TURN service, switch to time-limited HMAC credentials.
+     */
+    @GetMapping("/ice-config")
+    public ResponseEntity<Map<String, Object>> getIceConfig() {
+        List<Map<String, Object>> iceServers = new ArrayList<>();
+
+        Map<String, Object> stun = new HashMap<>();
+        stun.put("urls", List.of("stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"));
+        iceServers.add(stun);
+
+        if (turnUrl != null && !turnUrl.isBlank()) {
+            Map<String, Object> turn = new HashMap<>();
+            turn.put("urls", List.of(turnUrl));
+            if (turnUsername != null && !turnUsername.isBlank()) turn.put("username", turnUsername);
+            if (turnCredential != null && !turnCredential.isBlank()) turn.put("credential", turnCredential);
+            iceServers.add(turn);
+        }
+
+        return ResponseEntity.ok(Map.of("iceServers", iceServers));
     }
 
     @PostMapping("/sessions")
