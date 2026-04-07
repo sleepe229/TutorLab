@@ -663,6 +663,7 @@
   color: var(--text-primary);
 }
 .chat-members-panel__id { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-members-panel__name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .chat-members-panel__admin {
   font-size: 10px;
   color: var(--accent-primary);

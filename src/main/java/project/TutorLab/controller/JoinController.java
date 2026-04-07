@@ -81,10 +81,8 @@ public class JoinController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
 
-        // Link the StudentAccount to the newly created student ID
+        // Link the StudentAccount to the newly created student ID (also sets reverse link on Student)
         studentAccountService.linkToStudent(studentAccountId, newStudent.getId());
-        // Store the account link on the student profile for reverse lookups
-        studentService.setStudentAccountId(newStudent.getId(), studentAccountId);
 
         log.info("StudentAccount {} joined tutor {} as student {}", studentAccountId, tutorId, newStudent.getId());
         return ResponseEntity.ok(Map.of("studentId", newStudent.getId()));
