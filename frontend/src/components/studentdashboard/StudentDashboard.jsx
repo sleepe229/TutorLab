@@ -342,7 +342,7 @@ function StudentDashboard({ studentAccountId, onLogout }) {
     <div className="sd-container">
       <header className="sd-nav">
         <div className="sd-nav-inner">
-          <button className="sd-brand sd-brand-btn" onClick={() => setActiveTab('home')} type="button">
+          <button className="sd-brand sd-brand-btn" onClick={() => { setActiveTab('home'); navigate('/me'); }} type="button">
             <div className="sd-logo">TL</div>
             <span className="sd-brand-name">TutorLab</span>
           </button>

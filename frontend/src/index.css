@@ -70,6 +70,7 @@
   --bg-card:      #161B22;
   --border-color: #30363D;
   --bg-secondary: #161B22;
+  --bg-primary:   #0D1117;
 }
 
 /* ── Light theme ───────────────────────────────────────────────────────── */
@@ -124,6 +125,7 @@
   --bg-card:      #FFFFFF;
   --border-color: #E2E8F0;
   --bg-secondary: #FFFFFF;
+  --bg-primary:   #F8FAFC;
 }
 
 /* ── Base ──────────────────────────────────────────────────────────────── */

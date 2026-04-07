@@ -442,6 +442,13 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
     return groups;
   }, [messages]);
 
+  const nameMap = useMemo(() => {
+    const map = {};
+    if (senderId && senderName) map[senderId] = senderName;
+    messages.forEach(m => { if (m.senderId && m.senderName) map[m.senderId] = m.senderName; });
+    return map;
+  }, [messages, senderId, senderName]);
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   const renderMessage = (msg, i) => {
@@ -659,7 +666,7 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
                   <div className="chat-members-panel__title">Участники</div>
                   {(activeChat.participantIds || []).map(pid => (
                     <div key={pid} className="chat-members-panel__item">
-                      <span className="chat-members-panel__id">{pid}</span>
+                      <span className="chat-members-panel__name">{nameMap[pid] || 'Участник'}</span>
                       {activeChat.adminIds?.includes(pid) && (
                         <span className="chat-members-panel__admin">admin</span>
                       )}
