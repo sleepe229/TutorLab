@@ -67,12 +67,28 @@ public class FileUploadController {
                 Files.createDirectories(uploadPath);
             }
 
-            // Генерируем уникальное имя файла
-            String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            // Определяем безопасное расширение файла на основе типа содержимого
+            String extension;
+            switch (contentType) {
+                case "image/jpeg":
+                case "image/jpg":
+                    extension = ".jpg";
+                    break;
+                case "image/png":
+                    extension = ".png";
+                    break;
+                case "image/gif":
+                    extension = ".gif";
+                    break;
+                case "image/webp":
+                    extension = ".webp";
+                    break;
+                default:
+                    response.put("error", "Неподдерживаемый формат изображения");
+                    return ResponseEntity.badRequest().body(response);
             }
+
+            // Генерируем уникальное имя файла с безопасным расширением
             String filename = UUID.randomUUID().toString() + extension;
 
             // Сохраняем файл
