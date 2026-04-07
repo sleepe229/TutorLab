@@ -104,6 +104,8 @@ jobs:
   security-scan:
     name: Dependency Vulnerability Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [backend, frontend]
 
     steps:
