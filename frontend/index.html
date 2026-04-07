@@ -127,6 +127,23 @@
     </script>
   </head>
   <body>
+    <!-- Full process polyfill for CJS bundles (simple-peer) — must run before any ES module -->
+    <script>
+      (function() {
+        if (!window.process) window.process = {};
+        var p = window.process;
+        if (!p.env) p.env = {};
+        if (!p.env.NODE_ENV) p.env.NODE_ENV = 'production';
+        if (typeof p.nextTick !== 'function') {
+          p.nextTick = typeof queueMicrotask === 'function'
+            ? function(fn) { var a = Array.prototype.slice.call(arguments, 1); queueMicrotask(function() { fn.apply(null, a); }); }
+            : function(fn) { var a = Array.prototype.slice.call(arguments, 1); Promise.resolve().then(function() { fn.apply(null, a); }); };
+        }
+        if (typeof p.version !== 'string') p.version = 'v16.0.0';
+        if (!p.versions) p.versions = {};
+        if (typeof p.platform !== 'string') p.platform = 'browser';
+      })();
+    </script>
     <noscript>Для работы приложения необходимо включить JavaScript.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

@@ -26,6 +26,7 @@ export default defineConfig({
   },
   define: {
     global: 'globalThis',
+    'process.env.NODE_ENV': JSON.stringify('production'),
   },
   build: {
     manifest: true,
