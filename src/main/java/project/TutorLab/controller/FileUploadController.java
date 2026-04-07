@@ -147,9 +147,22 @@ public class FileUploadController {
         }
 
         try {
+            // Базовая директория для материалов
+            Path baseMaterialsPath = Paths.get(materialsDir).normalize().toAbsolutePath();
+
+            // Санитизируем идентификаторы, чтобы исключить спецсимволы и разделители путей
+            String safeTutorId = tutorId.replaceAll("[^A-Za-z0-9_-]", "_");
+            String safeStudentId = studentId.replaceAll("[^A-Za-z0-9_-]", "_");
+
             // Создаем структуру папок: materials/{tutorId}/{studentId}/
-            Path tutorPath = Paths.get(materialsDir, tutorId);
-            Path studentPath = tutorPath.resolve(studentId);
+            Path tutorPath = baseMaterialsPath.resolve(safeTutorId).normalize();
+            Path studentPath = tutorPath.resolve(safeStudentId).normalize();
+
+            // Убеждаемся, что путь студента остается внутри базовой директории
+            if (!studentPath.toAbsolutePath().startsWith(baseMaterialsPath)) {
+                response.put("error", "Недопустимый путь для сохранения файла");
+                return ResponseEntity.badRequest().body(response);
+            }
             
             if (!Files.exists(studentPath)) {
                 Files.createDirectories(studentPath);
@@ -166,7 +179,11 @@ public class FileUploadController {
             String safeFilename = originalFilename.replaceAll("[^\\p{L}\\p{N}.\\-_]", "_");
             
             // Проверяем, существует ли файл с таким именем
-            Path filePath = studentPath.resolve(safeFilename);
+            Path filePath = studentPath.resolve(safeFilename).normalize();
+            if (!filePath.toAbsolutePath().startsWith(studentPath.toAbsolutePath())) {
+                response.put("error", "Недопустимое имя файла");
+                return ResponseEntity.badRequest().body(response);
+            }
             if (Files.exists(filePath)) {
                 // Если файл существует, добавляем timestamp перед расширением
                 int lastDotIndex = safeFilename.lastIndexOf('.');
@@ -177,14 +194,18 @@ public class FileUploadController {
                 } else {
                     safeFilename = safeFilename + "_" + System.currentTimeMillis();
                 }
-                filePath = studentPath.resolve(safeFilename);
+                filePath = studentPath.resolve(safeFilename).normalize();
+                if (!filePath.toAbsolutePath().startsWith(studentPath.toAbsolutePath())) {
+                    response.put("error", "Недопустимое имя файла");
+                    return ResponseEntity.badRequest().body(response);
+                }
             }
 
             // Сохраняем файл
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
             // Возвращаем относительный путь для использования в приложении
-            String fileUrl = "/api/students/materials/" + tutorId + "/" + studentId + "/" + safeFilename;
+            String fileUrl = "/api/students/materials/" + safeTutorId + "/" + safeStudentId + "/" + safeFilename;
             response.put("fileUrl", fileUrl);
             response.put("fileName", safeFilename);
             
