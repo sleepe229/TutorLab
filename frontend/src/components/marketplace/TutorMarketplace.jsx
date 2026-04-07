@@ -228,13 +228,25 @@ function TutorMarketplace({ studentAccountId }) {
                       </div>
                     </div>
 
-                    {tutor.subjects?.length > 0 && (
-                      <div className="mkt-card__subjects">
-                        {tutor.subjects.map((s, i) => (
-                          <span key={i} className="mkt-card__subject-tag">{s}</span>
-                        ))}
-                      </div>
-                    )}
+                    {tutor.subjects?.length > 0 && (() => {
+                      const subs = tutor.subjects;
+                      const maxShown = 2;
+                      const shown = subs.slice(0, maxShown);
+                      const extra = subs.length - shown.length;
+                      const restTitle = extra > 0 ? subs.slice(maxShown).join(', ') : '';
+                      return (
+                        <div className="mkt-card__subjects">
+                          {shown.map((s, i) => (
+                            <span key={i} className="mkt-card__subject-tag">{s}</span>
+                          ))}
+                          {extra > 0 && (
+                            <span className="mkt-card__subject-tag mkt-card__subject-more" title={restTitle}>
+                              +{extra}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {tutor.about && (
                       <p className="mkt-card__about">{tutor.about}</p>

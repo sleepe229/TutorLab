@@ -8,6 +8,10 @@ import './ChatPanel.css';
 
 const EDIT_WINDOW_MS = 48 * 60 * 60 * 1000; // 48 hours
 
+function lastChatStorageKey(senderId) {
+  return `tutorlab:lastChat:${senderId}`;
+}
+
 /**
  * Chat panel for both tutor and student.
  *
@@ -54,12 +58,24 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
 
   const fileInputRef = useRef(null);
   const wsRef = useRef(null);
-  const bottomRef = useRef(null);
+  const messagesListRef = useRef(null);
   const inputRef = useRef(null);
   const activeChatRef = useRef(null);
   activeChatRef.current = activeChat;
 
   const isStudent = role === 'STUDENT';
+
+  /** Прокрутка только внутри списка — scrollIntoView уводил весь экран вверх на мобильных */
+  const scrollChatToBottom = useCallback((behavior) => {
+    const el = messagesListRef.current;
+    if (!el) return;
+    const top = el.scrollHeight;
+    if (behavior === 'smooth' && typeof el.scrollTo === 'function') {
+      el.scrollTo({ top, behavior: 'smooth' });
+    } else {
+      el.scrollTop = top;
+    }
+  }, []);
 
   // ── Load chats ──────────────────────────────────────────────────────────────
 
@@ -85,8 +101,17 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
       } else if (initialOpenStudentAccountId) {
         target = all.find(c => c.studentAccountId === initialOpenStudentAccountId);
       }
+      if (!target && all.length > 0) {
+        try {
+          const saved = sessionStorage.getItem(lastChatStorageKey(senderId));
+          if (saved) target = all.find(c => c.id === saved);
+        } catch { /* ignore */ }
+      }
       if (!target) target = all[0];
-      if (target && !activeChatRef.current) openChat(target);
+      const cur = activeChatRef.current;
+      if (target && (!cur || cur.id !== target.id)) {
+        openChat(target);
+      }
     } catch { /* silent */ }
     finally { setLoading(false); }
   };
@@ -95,6 +120,9 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
 
   const openChat = useCallback(async (chat) => {
     if (wsRef.current) { wsRef.current.disconnect(); wsRef.current = null; }
+    try {
+      sessionStorage.setItem(lastChatStorageKey(senderId), chat.id);
+    } catch { /* ignore */ }
     setActiveChat(chat);
     setMessages([]);
     setShowMembers(false);
@@ -134,14 +162,17 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
           if (prev.some(m => m.id === raw.id)) return prev;
           return [...prev, raw];
         });
-        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+        setTimeout(() => scrollChatToBottom('smooth'), 50);
       }
     });
     wsRef.current = ws;
-  }, [isStudent, token]);
+  }, [isStudent, token, senderId, scrollChatToBottom]);
 
   useEffect(() => () => { if (wsRef.current) wsRef.current.disconnect(); }, []);
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => scrollChatToBottom('smooth'));
+    return () => cancelAnimationFrame(id);
+  }, [messages, scrollChatToBottom]);
 
   // Close context menu on outside click
   useEffect(() => {
@@ -326,6 +357,10 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
     try {
       await chatApi.hideChat(activeChat.id, isStudent ? token : null);
       setChats(prev => prev.filter(c => c.id !== activeChat.id));
+      try {
+        const k = lastChatStorageKey(senderId);
+        if (sessionStorage.getItem(k) === activeChat.id) sessionStorage.removeItem(k);
+      } catch { /* ignore */ }
       setActiveChat(null);
       setMessages([]);
       toast.success('Диалог скрыт');
@@ -342,6 +377,10 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
     try {
       await chatApi.removeGroupMember(activeChat.id, senderId, isStudent ? token : null);
       setChats(prev => prev.filter(c => c.id !== activeChat.id));
+      try {
+        const k = lastChatStorageKey(senderId);
+        if (sessionStorage.getItem(k) === activeChat.id) sessionStorage.removeItem(k);
+      } catch { /* ignore */ }
       setActiveChat(null);
       setMessages([]);
       toast.success('Вы покинули группу');
@@ -593,8 +632,8 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
               {/* Chat header */}
               <div className="chat-messages__header">
                 <div className="chat-messages__header-left">
-                  {/* Mobile: back to chat list */}
                   <button
+                    type="button"
                     className="chat-back-btn"
                     onClick={() => setActiveChat(null)}
                     aria-label="Назад к диалогам"
@@ -603,12 +642,14 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
                       <polyline points="15 18 9 12 15 6"/>
                     </svg>
                   </button>
-                  <span className="chat-messages__name">{getChatDisplayName(activeChat)}</span>
-                  {isGroupChat(activeChat) && (
-                    <span className="chat-messages__member-count">
-                      {activeChat.participantIds?.length || 0} участников
-                    </span>
-                  )}
+                  <div className="chat-messages__header-title">
+                    <span className="chat-messages__name">{getChatDisplayName(activeChat)}</span>
+                    {isGroupChat(activeChat) && (
+                      <span className="chat-messages__member-count">
+                        {activeChat.participantIds?.length || 0} участников
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="chat-messages__header-actions">
                   {isStudent && !isGroupChat(activeChat) && (
@@ -690,7 +731,7 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
               )}
 
               {/* Message list */}
-              <div className="chat-messages__list">
+              <div className="chat-messages__list" ref={messagesListRef}>
                 {groupedMessages.map((item, i) => {
                   if (item.type === 'separator') {
                     return (
@@ -701,7 +742,6 @@ function ChatPanel({ role, senderId, senderName, token, onClose, inline = false,
                   }
                   return renderMessage(item.msg, i);
                 })}
-                <div ref={bottomRef} />
               </div>
 
               {/* Input */}

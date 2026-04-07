@@ -153,8 +153,14 @@ export const tutorApi = {
   uploadPhoto: async (file) => {
     const formData = new FormData();
     formData.append('file', file);
+    // Drop default JSON Content-Type so the client can set multipart boundary
     const response = await api.post('/tutors/upload-photo', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+      transformRequest: [(data, headers) => {
+        if (data instanceof FormData) {
+          delete headers['Content-Type'];
+        }
+        return data;
+      }],
     });
     return response;
   },

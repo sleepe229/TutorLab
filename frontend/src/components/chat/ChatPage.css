@@ -1,7 +1,13 @@
 .chat-page {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  /* dvh: стабильная высота под моб. браузеры; без лишней прокрутки всей страницы */
   height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
   background: var(--bg-page);
 }
 
@@ -19,6 +25,7 @@
 
 .chat-page__body {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   display: flex;
 }

@@ -1,11 +1,14 @@
 package project.TutorLab.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class TutorUpdateDto {
     private String fullName;
     private String photoUrl;
     private String about;
     private java.util.List<String> subjects;
     private Integer hourlyRate;
+    @JsonProperty("isPublicProfile")
     private Boolean isPublicProfile;
 
     public TutorUpdateDto() {
